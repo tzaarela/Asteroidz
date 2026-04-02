@@ -1,0 +1,11 @@
+{
+  "name": "@asteroidz/client",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc --build"
+  },
+  "dependencies": {
+    "@asteroidz/shared": "*"
+  }
+}

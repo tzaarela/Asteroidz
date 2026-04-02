@@ -1,0 +1,17 @@
+{
+  "name": "asteroidz",
+  "version": "0.0.0",
+  "private": true,
+  "workspaces": [
+    "shared",
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "build": "tsc --build",
+    "clean": "tsc --build --clean"
+  },
+  "devDependencies": {
+    "typescript": "~5.8.0"
+  }
+}
