@@ -1,0 +1,16 @@
+{
+  "name": "@asteroidz/shared",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./dist/types/index.js",
+  "types": "./dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "default": "./dist/types/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build"
+  }
+}
