@@ -8,6 +8,7 @@
     "server"
   ],
   "scripts": {
+    "dev": "npm run dev --workspace=client",
     "build": "tsc --build",
     "clean": "tsc --build --clean"
   },

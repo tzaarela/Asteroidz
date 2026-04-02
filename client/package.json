@@ -3,9 +3,16 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "tsc --build"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --build"
   },
   "dependencies": {
-    "@asteroidz/shared": "*"
+    "@asteroidz/shared": "*",
+    "phaser": "^3.88.2"
+  },
+  "devDependencies": {
+    "vite": "^6.3.1"
   }
 }
