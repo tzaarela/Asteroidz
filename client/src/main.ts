@@ -5,6 +5,7 @@ import { VictoryScene } from './scenes/VictoryScene';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
+  parent: 'game',
   backgroundColor: '#0a0a0a',
   physics: {
     default: 'arcade',
