@@ -1,5 +1,5 @@
 {
   "watch": ["src", "../shared"],
   "ext": "ts",
-  "exec": "ts-node --project tsconfig.json src/index.ts"
+  "exec": "tsx src/index.ts"
 }
