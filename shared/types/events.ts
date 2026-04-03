@@ -28,10 +28,10 @@ export interface ClientToServerEvents {
   // --- Lobby ---
 
   /** Create a new lobby. Server responds with lobby:state. */
-  'lobby:create': (payload: { name: string; color: string }) => void;
+  'lobby:create': (payload: { name: string }) => void;
 
   /** Join an existing lobby by ID. Server responds with lobby:state. */
-  'lobby:join': (payload: { lobbyId: string; name: string; color: string }) => void;
+  'lobby:join': (payload: { lobbyId: string; name: string }) => void;
 
   /** Leave the current lobby. */
   'lobby:leave': () => void;
