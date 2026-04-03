@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "@asteroidz/shared": "workspace:*",
-    "phaser": "^3.88.2"
+    "phaser": "^3.88.2",
+    "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
     "vite": "^6.3.1"
