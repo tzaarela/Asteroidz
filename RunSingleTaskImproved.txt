@@ -1,6 +1,7 @@
 Let's do a task in monday.com, using the Monday mcp server.
 
-Let's do the task with the highest priority in the list from the To-Do group. But dont take it if the status is "InProgress".
+Let's do the task with the highest priority in the list from the To-Do group. But dont take it if the status is "InProgress". 
+And if we dont find a task with the right criteras just tell me and do nothing.
 
 Use this MCP command to get the list: Run Query or Mutation on any monday.com API (MCP)(query: "query GetGroupItems($boardId: ID!, $groupId: String!) {\n  boards(ids:  
                                                                           [$boardId]) {\n    groups(ids: [$groupId]) {\n      id\n      title\n
@@ -16,4 +17,4 @@ Read the implementation note in the UPDATE field of the task using this method, 
 claude.ai monday.com - Get Updates (MCP)(objectId: "", objectType: "Item")
 
 
-When I tell you to make a Pull Request for the task, set the task to done and move it to the Completed group. If we dont find a task with the right criteras just tell me and do nothing.
+When I tell you to make a Pull Request for the task, set the task status to done. 
