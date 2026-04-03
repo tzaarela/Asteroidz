@@ -1,5 +1,6 @@
 import express from 'express';
 import { createServer } from 'http';
+import path from 'path';
 import { Server } from 'socket.io';
 import type { ClientToServerEvents, ServerToClientEvents } from '@asteroidz/shared';
 import { createLobby, joinLobby, leaveLobby, handleDisconnect } from './lobby/lobbyManager.js';
@@ -18,6 +19,13 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
 
 if (isProd) {
   app.use(express.static('../client/dist'));
+  app.get('/game/:lobbyCode', (_req, res) => {
+    res.sendFile(path.resolve('../client/dist/index.html'));
+  });
+} else {
+  app.get('/game/:lobbyCode', (req, res) => {
+    res.redirect(`http://localhost:${process.env['VITE_PORT'] ?? 5173}/game/${req.params.lobbyCode}`);
+  });
 }
 
 io.on('connection', (socket) => {
