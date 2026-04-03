@@ -1,15 +1,16 @@
 {
   "permissions": {
     "allow": [
-        "mcp__claude_ai_monday_com__search",
-        "mcp__claude_ai_monday_com__get_board_info",
-        "mcp__claude_ai_monday_com__create_item",
-        "mcp__claude_ai_monday_com__get_board_items_page",
-        "mcp__claude_ai_monday_com__create_doc",
-        "mcp__claude_ai_monday_com__add_content_to_doc",
-        "mcp__claude_ai_monday_com__all_monday_api",
-        "mcp__claude_ai_monday_com__create_update",
-        "Bash(npm run:*)"
+      "mcp__claude_ai_monday_com__search",
+      "mcp__claude_ai_monday_com__get_board_info",
+      "mcp__claude_ai_monday_com__create_item",
+      "mcp__claude_ai_monday_com__get_board_items_page",
+      "mcp__claude_ai_monday_com__create_doc",
+      "mcp__claude_ai_monday_com__add_content_to_doc",
+      "mcp__claude_ai_monday_com__all_monday_api",
+      "mcp__claude_ai_monday_com__create_update",
+      "Bash(npm run:*)",
+      "mcp__github__create_branch"
     ]
   }
 }
