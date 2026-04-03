@@ -1,0 +1,23 @@
+  const socket = io('http://localhost:3000');
+  socket.emit('lobby:create', { name: 'Jimmy', color: '#ff4444' });                                                                
+  socket.on('lobby:state', (state) => console.log('lobby:state', state));
+  
+  But io won't be available yet since the client doesn't import Socket.IO. The quickest workaround — load it from a CDN first:
+
+  const s = document.createElement('script');
+  s.src = 'https://cdn.socket.io/4.8.1/socket.io.min.js';
+  document.head.appendChild(s);
+
+  Wait a second, then run:
+
+  const socket = io('http://localhost:3000');
+  socket.on('lobby:state', (state) => console.log('lobby:state', state));
+  socket.emit('lobby:create', { name: 'Jimmy', color: '#ff4444' });
+
+  For the two-client test, open a second tab, load the CDN script again, then:
+
+  const socket = io('http://localhost:3000');
+  socket.on('lobby:state', (state) => console.log('lobby:state', state));
+  socket.emit('lobby:join', { lobbyId: 'XXXXX', name: 'Player2', color: '#44ff44' });
+
+  Replace XXXXX with the code you got back in the first tab's lobby:state log.

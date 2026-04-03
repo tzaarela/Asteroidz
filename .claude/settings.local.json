@@ -10,7 +10,8 @@
       "mcp__claude_ai_monday_com__all_monday_api",
       "mcp__claude_ai_monday_com__create_update",
       "Bash(npm run:*)",
-      "mcp__github__create_branch"
+      "Bash(pnpm --filter @asteroidz/shared build)",
+      "Bash(pnpm --filter @asteroidz/server build)"
     ]
   }
 }
