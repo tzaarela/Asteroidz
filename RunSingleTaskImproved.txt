@@ -1,4 +1,3 @@
-@ -0,0 +1,12 @@
 Let's do a task in monday.com, using the Monday mcp server.
 
 Let's do the task with the highest priority in the list from the To-Do group. But dont take it if the status is "InProgress".
