@@ -7,7 +7,7 @@
     "build": "tsc --build"
   },
   "dependencies": {
-    "@asteroidz/shared": "*",
+    "@asteroidz/shared": "workspace:*",
     "express": "^4.19.2",
     "socket.io": "^4.8.1"
   },

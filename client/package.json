@@ -9,7 +9,7 @@
     "typecheck": "tsc --build"
   },
   "dependencies": {
-    "@asteroidz/shared": "*",
+    "@asteroidz/shared": "workspace:*",
     "phaser": "^3.88.2"
   },
   "devDependencies": {
