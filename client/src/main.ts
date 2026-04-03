@@ -1,17 +1,22 @@
 import Phaser from 'phaser';
-
-console.log(`Phaser version: ${Phaser.VERSION}`);
+import { MenuScene } from './scenes/MenuScene';
+import { GameScene } from './scenes/GameScene';
+import { VictoryScene } from './scenes/VictoryScene';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
-  width: 800,
-  height: 600,
-  backgroundColor: '#000000',
-  scene: {
-    preload() {},
-    create() {},
-    update() {},
+  backgroundColor: '#0a0a0a',
+  physics: {
+    default: 'arcade',
+    arcade: {
+      gravity: { x: 0, y: 0 },
+    },
   },
+  scale: {
+    mode: Phaser.Scale.RESIZE,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+  },
+  scene: [MenuScene, GameScene, VictoryScene],
 };
 
 new Phaser.Game(config);
