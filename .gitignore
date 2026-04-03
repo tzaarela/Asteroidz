@@ -37,3 +37,6 @@ coverage/
 
 # Misc
 *.map.tmp
+
+# Claude Code worktrees
+.claude/worktrees/
