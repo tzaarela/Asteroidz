@@ -9,4 +9,11 @@ Use this MCP command to get the list: Run Query or Mutation on any monday.com AP
                                                                                    text\n            value\n          }\n        }\n      }\n    }\n       
                                                                           }\n}", variables: "{\"boardId\": \"5094052025\", \"groupId\": \"topics\"}")
 
-Read the implementation note in the UPDATE field of the task. When I tell you to make a Pull Request for the task, set the task to done and move it to the Completed group. If we dont find a task with the right criteras just tell me and do nothing.
+
+Read the implementation note in the UPDATE field of the task using this method, fill in the objectId:
+
+
+claude.ai monday.com - Get Updates (MCP)(objectId: "", objectType: "Item")
+
+
+When I tell you to make a Pull Request for the task, set the task to done and move it to the Completed group. If we dont find a task with the right criteras just tell me and do nothing.
