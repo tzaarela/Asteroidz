@@ -7,58 +7,17 @@
  * Usage:
  *   Server: new Server<ClientToServerEvents, ServerToClientEvents>()
  *   Client: io() as Socket<ServerToClientEvents, ClientToServerEvents>
- *
- * TODO (A7): Once game.ts is created, move Vector2, PlayerTransform,
- * PlayerInfo, and ScoreEntry into shared/types/game.ts and import them here.
  */
 
-// ---------------------------------------------------------------------------
-// Primitive shared types (to be moved to game.ts in A7)
-// ---------------------------------------------------------------------------
-
-export interface Vector2 {
-  x: number;
-  y: number;
-}
-
-/** Full kinematic state of a ship at a point in time. */
-export interface PlayerTransform {
-  x: number;
-  y: number;
-  rotation: number; // radians
-  vx: number;
-  vy: number;
-}
-
-export interface PlayerInfo {
-  id: string;
-  name: string;
-  color: string; // hex string, e.g. '#ff4444'
-}
-
-export interface ScoreEntry {
-  playerId: string;
-  kills: number;
-}
-
-// ---------------------------------------------------------------------------
-// Domain enums / union types
-// ---------------------------------------------------------------------------
-
-export type MatchState = 'warmup' | 'active' | 'victory';
-
-export type PickupType = 'ammo' | 'shield';
-
-// ---------------------------------------------------------------------------
-// Lobby payload types
-// ---------------------------------------------------------------------------
-
-export interface LobbyState {
-  lobbyId: string;
-  players: PlayerInfo[];
-  leaderId: string;
-  matchState: MatchState;
-}
+import {
+  Vector2,
+  PlayerTransform,
+  PlayerInfo,
+  ScoreEntry,
+  MatchPhase,
+  PickupType,
+  LobbyState,
+} from './game.js';
 
 // ---------------------------------------------------------------------------
 // ClientToServerEvents
@@ -169,7 +128,7 @@ export interface ServerToClientEvents {
   // --- Match ---
 
   /** Current match phase. Sent on state transitions and when a player joins. */
-  'match:state': (payload: { state: MatchState }) => void;
+  'match:state': (payload: { state: MatchPhase }) => void;
 
   /** Updated kill counts for all players; sent after each confirmed kill. */
   'match:score': (payload: { scores: ScoreEntry[] }) => void;
