@@ -23,8 +23,8 @@ if (isProd) {
 io.on('connection', (socket) => {
   console.log(`client connected: ${socket.id}`);
 
-  socket.on('lobby:create', ({ name, color }) => createLobby(socket, name, color));
-  socket.on('lobby:join', ({ lobbyId, name, color }) => joinLobby(socket, lobbyId, name, color));
+  socket.on('lobby:create', ({ name }) => createLobby(socket, name));
+  socket.on('lobby:join', ({ lobbyId, name }) => joinLobby(socket, lobbyId, name));
   socket.on('lobby:leave', () => leaveLobby(socket, io));
   socket.on('disconnect', () => handleDisconnect(socket, io));
 });

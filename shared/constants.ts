@@ -50,3 +50,14 @@ export const MATCH = {
   killsToWin: 5,
   victoryDisplayMs: 7000,  // ms to show victory screen before returning to warmup
 } as const;
+
+export const PLAYER_COLORS = [
+  '#FF6B6B', // red
+  '#4ECDC4', // teal
+  '#FFE66D', // yellow
+  '#A29BFE', // purple
+  '#55EFC4', // mint
+  '#FD79A8', // pink
+  '#74B9FF', // sky blue
+  '#FDCB6E', // orange
+] as const;
