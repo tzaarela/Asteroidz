@@ -2,6 +2,7 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import type { ClientToServerEvents, ServerToClientEvents } from '@asteroidz/shared';
+import { createLobby, joinLobby, leaveLobby, handleDisconnect } from './lobby/lobbyManager.js';
 
 const PORT = process.env.PORT ?? 3000;
 const isProd = process.env.NODE_ENV === 'production';
@@ -22,9 +23,10 @@ if (isProd) {
 io.on('connection', (socket) => {
   console.log(`client connected: ${socket.id}`);
 
-  socket.on('disconnect', () => {
-    console.log(`client disconnected: ${socket.id}`);
-  });
+  socket.on('lobby:create', ({ name, color }) => createLobby(socket, name, color));
+  socket.on('lobby:join', ({ lobbyId, name, color }) => joinLobby(socket, lobbyId, name, color));
+  socket.on('lobby:leave', () => leaveLobby(socket, io));
+  socket.on('disconnect', () => handleDisconnect(socket, io));
 });
 
 httpServer.listen(PORT, () => {
