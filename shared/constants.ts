@@ -8,6 +8,10 @@ export const PHYSICS = {
   drag: 0.98,              // velocity multiplier per frame (1 = no drag, 0 = instant stop)
 } as const;
 
+export const SHIP = {
+  size: 20,  // half-height of triangle in pixels; used for texture size and physics body radius
+} as const;
+
 export const BULLET = {
   speed: 600,              // pixels/s
   maxDistance: 800,        // pixels before despawn
