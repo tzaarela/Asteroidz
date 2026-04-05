@@ -106,7 +106,12 @@ export class MenuScene extends Phaser.Scene {
     }
 
     this.errorText.setText('');
-    this.createButton.disableInteractive().setColor('#888888');
+    if (this.lobbyCode) {
+      // Called from the join-mode fallback link — disable join button instead
+      this.joinButton.disableInteractive().setColor('#888888');
+    } else {
+      this.createButton.disableInteractive().setColor('#888888');
+    }
 
     const handleLobbyState = (lobbyState: LobbyState): void => {
       off('lobby:state', handleLobbyState);
