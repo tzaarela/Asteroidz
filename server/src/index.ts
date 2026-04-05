@@ -18,6 +18,9 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
 
 if (isProd) {
   app.use(express.static('../client/dist'));
+  app.get('/game/:code', (_req, res) => {
+    res.sendFile('index.html', { root: '../client/dist' });
+  });
 }
 
 io.on('connection', (socket) => {

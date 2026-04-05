@@ -63,6 +63,7 @@ export function joinLobby(socket: GameSocket, lobbyId: string, name: string): vo
 
   if (!lobby) {
     console.log(`lobby:join failed — unknown code: ${code} (socket: ${socket.id})`);
+    socket.emit('lobby:error', { message: `Lobby '${code}' not found` });
     return;
   }
 
