@@ -128,3 +128,7 @@ export function leaveLobby(socket: GameSocket, io: GameServer): void {
 export function handleDisconnect(socket: GameSocket, io: GameServer): void {
   leaveLobby(socket, io);
 }
+
+export function getPlayerLobbyCode(socketId: string): string | undefined {
+  return socketToLobby.get(socketId);
+}

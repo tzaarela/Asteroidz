@@ -1,6 +1,13 @@
 import { defineConfig } from 'vite';
+import path from 'path';
 
 export default defineConfig({
+  resolve: {
+    alias: [
+      { find: '@asteroidz/shared/constants', replacement: path.resolve(__dirname, '../shared/constants.ts') },
+      { find: '@asteroidz/shared', replacement: path.resolve(__dirname, '../shared/types/index.ts') },
+    ],
+  },
   root: '.',
   build: {
     outDir: 'dist',
