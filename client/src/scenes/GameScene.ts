@@ -1,25 +1,30 @@
 import Phaser from 'phaser';
 import { ARENA } from '@asteroidz/shared/constants';
 import type { LobbyState } from '@asteroidz/shared';
+import { on, off, emit, getSocketId } from '../network/socket';
+import { LobbyPanel } from '../ui/LobbyPanel';
 
 const STAR_COUNT = 300;
 const STAR_SEED = 42;
 
 export class GameScene extends Phaser.Scene {
   private lobbyState!: LobbyState;
+  private myId!: string;
+  private lobbyPanel!: LobbyPanel;
 
   constructor() {
     super('GameScene');
   }
 
-  create(): void {
-    const { lobbyState } = this.scene.settings.data as { lobbyState: LobbyState };
-    this.lobbyState = lobbyState;
+  init(data: { lobbyState: LobbyState }): void {
+    this.lobbyState = data.lobbyState;
+    this.myId = getSocketId() ?? '';
+  }
 
+  create(): void {
     this.physics.world.setBounds(0, 0, ARENA.worldWidth, ARENA.worldHeight);
     this.cameras.main.setBounds(0, 0, ARENA.worldWidth, ARENA.worldHeight);
 
-    // Background fill covering the full world
     this.add.rectangle(
       ARENA.worldWidth / 2,
       ARENA.worldHeight / 2,
@@ -29,6 +34,30 @@ export class GameScene extends Phaser.Scene {
     );
 
     this.createStarField();
+
+    this.add
+      .text(this.scale.width / 2, 40, 'ASTEROIDZ', {
+        fontSize: '28px',
+        color: '#ffffff',
+        fontStyle: 'bold',
+        fontFamily: 'monospace',
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0);
+
+    this.lobbyPanel = new LobbyPanel(
+      this,
+      this.lobbyState,
+      this.myId,
+      () => this.onLeave(),
+      () => this.onStartMatch(),
+    );
+
+    on('lobby:state', this.handleLobbyState);
+
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      off('lobby:state', this.handleLobbyState);
+    });
   }
 
   setFollowTarget(sprite: Phaser.Physics.Arcade.Sprite): void {
@@ -53,5 +82,19 @@ export class GameScene extends Phaser.Scene {
       graphics.fillStyle(0xffffff, alpha);
       graphics.fillCircle(x, y, radius);
     }
+  }
+
+  private handleLobbyState = (lobbyState: LobbyState): void => {
+    this.lobbyState = lobbyState;
+    this.lobbyPanel.update(lobbyState, this.myId);
+  };
+
+  private onLeave(): void {
+    emit('lobby:leave');
+    this.scene.start('MenuScene');
+  }
+
+  private onStartMatch(): void {
+    emit('lobby:start');
   }
 }

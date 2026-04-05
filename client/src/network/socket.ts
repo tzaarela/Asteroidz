@@ -52,3 +52,7 @@ export function off<Ev extends keyof ServerToClientEvents>(
 ): void {
   socket?.off(event, callback as never);
 }
+
+export function getSocketId(): string | undefined {
+  return socket?.id;
+}

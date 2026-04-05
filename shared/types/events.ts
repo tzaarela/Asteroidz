@@ -78,6 +78,9 @@ export interface ServerToClientEvents {
   /** Full lobby snapshot: sent on join, on player join/leave, and on match state change. */
   'lobby:state': (payload: LobbyState) => void;
 
+  /** Server rejects a lobby operation (e.g. unknown lobby code on join). */
+  'lobby:error': (payload: { message: string }) => void;
+
   // --- Player (relayed) ---
 
   /** Remote player position update; includes the sender's socket ID. */
