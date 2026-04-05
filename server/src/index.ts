@@ -1,8 +1,9 @@
 import express from 'express';
 import { createServer } from 'http';
+import path from 'path';
 import { Server } from 'socket.io';
 import type { ClientToServerEvents, ServerToClientEvents } from '@asteroidz/shared';
-import { createLobby, joinLobby, leaveLobby, handleDisconnect } from './lobby/lobbyManager.js';
+import { createLobby, joinLobby, leaveLobby, handleDisconnect, getPlayerLobbyCode } from './lobby/lobbyManager.js';
 
 const PORT = process.env.PORT ?? 3000;
 const isProd = process.env.NODE_ENV === 'production';
@@ -18,8 +19,12 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
 
 if (isProd) {
   app.use(express.static('../client/dist'));
-  app.get('/game/:code', (_req, res) => {
-    res.sendFile('index.html', { root: '../client/dist' });
+  app.get('/game/:lobbyCode', (_req, res) => {
+    res.sendFile(path.resolve('../client/dist/index.html'));
+  });
+} else {
+  app.get('/game/:lobbyCode', (req, res) => {
+    res.redirect(`http://localhost:${process.env['VITE_PORT'] ?? 5173}/game/${req.params.lobbyCode}`);
   });
 }
 
@@ -30,6 +35,12 @@ io.on('connection', (socket) => {
   socket.on('lobby:join', ({ lobbyId, name }) => joinLobby(socket, lobbyId, name));
   socket.on('lobby:leave', () => leaveLobby(socket, io));
   socket.on('disconnect', () => handleDisconnect(socket, io));
+
+  socket.on('player:update', (transform) => {
+    const lobbyCode = getPlayerLobbyCode(socket.id);
+    if (!lobbyCode) return;
+    socket.to(lobbyCode).emit('player:update', { playerId: socket.id, ...transform });
+  });
 });
 
 httpServer.listen(PORT, () => {
