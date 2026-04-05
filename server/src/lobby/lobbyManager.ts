@@ -129,6 +129,23 @@ export function handleDisconnect(socket: GameSocket, io: GameServer): void {
   leaveLobby(socket, io);
 }
 
+export function startMatch(socket: GameSocket, io: GameServer): void {
+  const code = socketToLobby.get(socket.id);
+  if (!code) return;
+
+  const lobby = lobbies.get(code);
+  if (!lobby) return;
+
+  if (lobby.leaderId !== socket.id) {
+    console.log(`lobby:start rejected — ${socket.id} is not the leader of ${code}`);
+    return;
+  }
+
+  lobby.matchPhase = MatchPhase.Active;
+  io.to(code).emit('match:state', { state: MatchPhase.Active });
+  console.log(`lobby ${code} — match started by ${socket.id}`);
+}
+
 export function getPlayerLobbyCode(socketId: string): string | undefined {
   return socketToLobby.get(socketId);
 }
