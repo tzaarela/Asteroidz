@@ -3,7 +3,7 @@ import { createServer } from 'http';
 import path from 'path';
 import { Server } from 'socket.io';
 import type { ClientToServerEvents, ServerToClientEvents } from '@asteroidz/shared';
-import { createLobby, joinLobby, leaveLobby, handleDisconnect } from './lobby/lobbyManager.js';
+import { createLobby, joinLobby, leaveLobby, handleDisconnect, getPlayerLobbyCode } from './lobby/lobbyManager.js';
 
 const PORT = process.env.PORT ?? 3000;
 const isProd = process.env.NODE_ENV === 'production';
@@ -35,6 +35,12 @@ io.on('connection', (socket) => {
   socket.on('lobby:join', ({ lobbyId, name }) => joinLobby(socket, lobbyId, name));
   socket.on('lobby:leave', () => leaveLobby(socket, io));
   socket.on('disconnect', () => handleDisconnect(socket, io));
+
+  socket.on('player:update', (transform) => {
+    const lobbyCode = getPlayerLobbyCode(socket.id);
+    if (!lobbyCode) return;
+    socket.to(lobbyCode).emit('player:update', { playerId: socket.id, ...transform });
+  });
 });
 
 httpServer.listen(PORT, () => {
