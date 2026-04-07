@@ -1,7 +1,7 @@
 import type { Socket, Server } from 'socket.io';
 import type { ClientToServerEvents, ServerToClientEvents } from '@asteroidz/shared';
-import { MatchPhase, PLAYER_COLORS } from '@asteroidz/shared';
-import type { LobbyState, PlayerInfo } from '@asteroidz/shared';
+import { MatchPhase, PLAYER_COLORS, MATCH } from '@asteroidz/shared';
+import type { LobbyState, PlayerInfo, ScoreEntry } from '@asteroidz/shared';
 
 type GameSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 type GameServer = Server<ClientToServerEvents, ServerToClientEvents>;
@@ -13,6 +13,9 @@ const socketToLobby = new Map<string, string>();
 
 // Maps lobby code → set of hex colors currently in use
 const lobbyColors = new Map<string, Set<string>>();
+
+// Maps lobby code → (playerId → kill count) for the active match
+const lobbyKills = new Map<string, Record<string, number>>();
 
 function generateCode(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -112,6 +115,7 @@ export function leaveLobby(socket: GameSocket, io: GameServer): void {
   if (lobby.players.length === 0) {
     lobbies.delete(code);
     lobbyColors.delete(code);
+    lobbyKills.delete(code);
     console.log(`lobby ${code} deleted — no players remaining`);
     return;
   }
@@ -141,11 +145,61 @@ export function startMatch(socket: GameSocket, io: GameServer): void {
     return;
   }
 
+  // Reset kill counts for all current players
+  const kills: Record<string, number> = {};
+  for (const p of lobby.players) kills[p.id] = 0;
+  lobbyKills.set(code, kills);
+
   lobby.matchPhase = MatchPhase.Active;
+
+  const scores: ScoreEntry[] = lobby.players.map((p) => ({ playerId: p.id, kills: 0 }));
   io.to(code).emit('match:state', { state: MatchPhase.Active });
+  io.to(code).emit('match:score', { scores });
   console.log(`lobby ${code} — match started by ${socket.id}`);
 }
 
 export function getPlayerLobbyCode(socketId: string): string | undefined {
   return socketToLobby.get(socketId);
+}
+
+export function handleKill(socket: GameSocket, io: GameServer, targetId: string): void {
+  const code = socketToLobby.get(socket.id);
+  if (!code) return;
+
+  const lobby = lobbies.get(code);
+  if (!lobby) return;
+
+  // Kills only count during Active phase
+  if (lobby.matchPhase !== MatchPhase.Active) return;
+
+  const kills = lobbyKills.get(code);
+  if (!kills) return;
+
+  // Increment killer's count
+  kills[socket.id] = (kills[socket.id] ?? 0) + 1;
+
+  // Broadcast death and updated scores
+  io.to(code).emit('player:died', { playerId: targetId, killerId: socket.id });
+
+  const scores: ScoreEntry[] = Object.entries(kills).map(([playerId, k]) => ({ playerId, kills: k }));
+  io.to(code).emit('match:score', { scores });
+
+  console.log(`lobby ${code} — kill: ${socket.id} → ${targetId} (${kills[socket.id]} kills)`);
+
+  // Check win condition
+  if (kills[socket.id] >= MATCH.killsToWin) {
+    lobby.matchPhase = MatchPhase.Victory;
+    io.to(code).emit('match:winner', { winnerId: socket.id, scores });
+    console.log(`lobby ${code} — winner: ${socket.id}`);
+
+    // Auto-reset to Warmup after victory display window
+    setTimeout(() => {
+      const currentLobby = lobbies.get(code);
+      if (!currentLobby) return; // lobby was deleted before timer fired
+      currentLobby.matchPhase = MatchPhase.Warmup;
+      lobbyKills.delete(code);
+      io.to(code).emit('match:reset');
+      console.log(`lobby ${code} — reset to warmup`);
+    }, MATCH.victoryDisplayMs);
+  }
 }
