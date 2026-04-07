@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { LobbyState, PlayerTransform } from '@asteroidz/shared';
-import { MatchPhase, ARENA, PHYSICS, SHIP, NETWORK } from '@asteroidz/shared';
+import { MatchPhase, ARENA, PHYSICS, SHIP, NETWORK, RESPAWN, AMMO } from '@asteroidz/shared';
 import { on, off, emit, getSocketId } from '../network/socket';
 import { LobbyPanel } from '../ui/LobbyPanel';
 import { MovementSystem } from '../systems/movement';
@@ -26,6 +26,7 @@ export class GameScene extends Phaser.Scene {
   private keys: { W: Phaser.Input.Keyboard.Key; A: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key; SPACE: Phaser.Input.Keyboard.Key } | null = null;
   private matchActive = false;
   private tickAccumulator = 0;
+  private isDead = false;
 
   constructor() {
     super('GameScene');
@@ -41,6 +42,7 @@ export class GameScene extends Phaser.Scene {
     this.remoteBulletSystem = null;
     this.matchActive = false;
     this.tickAccumulator = 0;
+    this.isDead = false;
   }
 
   create(): void {
@@ -82,14 +84,16 @@ export class GameScene extends Phaser.Scene {
       () => this.onStartMatch(),
     );
 
-    on('lobby:state', this.handleLobbyState);
-    on('match:state', this.handleMatchState);
-    on('match:reset', this.handleMatchReset);
+    on('lobby:state',  this.handleLobbyState);
+    on('match:state',  this.handleMatchState);
+    on('match:reset',  this.handleMatchReset);
+    on('player:died',  this.handlePlayerDied);
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      off('lobby:state', this.handleLobbyState);
-      off('match:state', this.handleMatchState);
-      off('match:reset', this.handleMatchReset);
+      off('lobby:state',  this.handleLobbyState);
+      off('match:state',  this.handleMatchState);
+      off('match:reset',  this.handleMatchReset);
+      off('player:died',  this.handlePlayerDied);
       this.remotePlayerSystem?.destroy();
       this.remoteBulletSystem?.destroy();
       this.bulletSystem = null;
@@ -187,8 +191,10 @@ export class GameScene extends Phaser.Scene {
   };
 
   update(_time: number, delta: number): void {
-    this.movementSystem?.update(delta);
-    this.bulletSystem?.update(delta);
+    if (!this.isDead) {
+      this.movementSystem?.update(delta);
+      this.bulletSystem?.update(delta);
+    }
     this.remotePlayerSystem?.update();
     this.remoteBulletSystem?.update();
 
@@ -214,6 +220,38 @@ export class GameScene extends Phaser.Scene {
     emit('player:update', payload);
   }
 
+  private handlePlayerDied = (payload: { playerId: string; killerId: string | null }): void => {
+    if (payload.playerId !== this.myId) return;
+    this.isDead = true;
+    if (this.shipSprite) {
+      this.shipSprite.setActive(false).setVisible(false);
+      (this.shipSprite.body as Phaser.Physics.Arcade.Body).setEnable(false);
+    }
+    this.time.delayedCall(RESPAWN.delayMs, () => this.respawnLocalShip());
+  };
+
+  private calculateSafeSpawnPosition(): { x: number; y: number } {
+    const cx = ARENA.worldWidth / 2;
+    const cy = ARENA.worldHeight / 2;
+    const angle = Math.random() * Math.PI * 2;
+    const r = Math.random() * ARENA.arenaRadius * 0.8; // stay 20% away from arena wall
+    return { x: cx + Math.cos(angle) * r, y: cy + Math.sin(angle) * r };
+  }
+
+  private respawnLocalShip(): void {
+    if (!this.shipSprite) return;
+    const { x, y } = this.calculateSafeSpawnPosition();
+    this.shipSprite.setPosition(x, y);
+    this.shipSprite.setRotation(0);
+    const body = this.shipSprite.body as Phaser.Physics.Arcade.Body;
+    body.setVelocity(0, 0);
+    body.setEnable(true);
+    this.shipSprite.setActive(true).setVisible(true);
+    this.bulletSystem?.resetAmmo();
+    this.isDead = false;
+    emit('player:respawn', { x, y });
+  }
+
   private handleMatchReset = (): void => {
     this.bulletHitCollider?.destroy();
     this.bulletHitCollider = null;
@@ -225,6 +263,7 @@ export class GameScene extends Phaser.Scene {
     this.remoteBulletSystem?.destroy();
     this.remoteBulletSystem = null;
     this.bulletSystem = null;
+    this.isDead = false;
 
     this.cameras.main.stopFollow();
     this.cameras.main.setScroll(
