@@ -6,6 +6,7 @@ import { LobbyPanel } from '../ui/LobbyPanel';
 import { MovementSystem } from '../systems/movement';
 import { RemotePlayerSystem } from '../systems/remotePlayerSystem';
 import { BulletSystem } from '../systems/bulletSystem';
+import { RemoteBulletSystem } from '../systems/remoteBulletSystem';
 
 const STAR_COUNT = 300;
 const STAR_SEED = 42;
@@ -19,8 +20,9 @@ export class GameScene extends Phaser.Scene {
   private shipSprite: Phaser.Physics.Arcade.Sprite | null = null;
   private movementSystem: MovementSystem | null = null;
   private remotePlayerSystem: RemotePlayerSystem | null = null;
-  private keys: { W: Phaser.Input.Keyboard.Key; A: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key; SPACE: Phaser.Input.Keyboard.Key } | null = null;
   private bulletSystem: BulletSystem | null = null;
+  private remoteBulletSystem: RemoteBulletSystem | null = null;
+  private keys: { W: Phaser.Input.Keyboard.Key; A: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key; SPACE: Phaser.Input.Keyboard.Key } | null = null;
   private matchActive = false;
   private tickAccumulator = 0;
 
@@ -34,6 +36,8 @@ export class GameScene extends Phaser.Scene {
     this.shipSprite = null;
     this.movementSystem = null;
     this.remotePlayerSystem = null;
+    this.bulletSystem = null;
+    this.remoteBulletSystem = null;
     this.matchActive = false;
     this.tickAccumulator = 0;
   }
@@ -84,6 +88,7 @@ export class GameScene extends Phaser.Scene {
       off('lobby:state', this.handleLobbyState);
       off('match:state', this.handleMatchState);
       this.remotePlayerSystem?.destroy();
+      this.remoteBulletSystem?.destroy();
       this.bulletSystem = null;
     });
   }
@@ -131,6 +136,7 @@ export class GameScene extends Phaser.Scene {
 
     this.createLocalShip();
     this.remotePlayerSystem = new RemotePlayerSystem(this, this.myId, this.lobbyState);
+    this.remoteBulletSystem = new RemoteBulletSystem(this, () => this.lobbyState.players);
     this.bulletSystem = new BulletSystem(this, this.shipSprite!, this.keys!.SPACE);
     this.physics.add.overlap(
       this.bulletSystem.getBulletGroup(),
@@ -181,6 +187,7 @@ export class GameScene extends Phaser.Scene {
     this.movementSystem?.update(delta);
     this.bulletSystem?.update(delta);
     this.remotePlayerSystem?.update();
+    this.remoteBulletSystem?.update();
 
     if (this.shipSprite) {
       this.tickAccumulator += delta;
