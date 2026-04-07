@@ -17,6 +17,8 @@ const lobbyColors = new Map<string, Set<string>>();
 // Maps lobby code → (playerId → kill count) for the active match
 const lobbyKills = new Map<string, Record<string, number>>();
 
+const victoryTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
 function generateCode(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   return Array.from({ length: 5 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
@@ -113,6 +115,11 @@ export function leaveLobby(socket: GameSocket, io: GameServer): void {
   void socket.leave(code);
 
   if (lobby.players.length === 0) {
+    const timer = victoryTimers.get(code);
+    if (timer) {
+      clearTimeout(timer);
+      victoryTimers.delete(code);
+    }
     lobbies.delete(code);
     lobbyColors.delete(code);
     lobbyKills.delete(code);
@@ -189,17 +196,21 @@ export function handleKill(socket: GameSocket, io: GameServer, targetId: string)
   // Check win condition
   if (kills[socket.id] >= MATCH.killsToWin) {
     lobby.matchPhase = MatchPhase.Victory;
+    io.to(code).emit('match:state', { state: MatchPhase.Victory });
     io.to(code).emit('match:winner', { winnerId: socket.id, scores });
     console.log(`lobby ${code} — winner: ${socket.id}`);
 
-    // Auto-reset to Warmup after victory display window
-    setTimeout(() => {
+    const timer = setTimeout(() => {
+      victoryTimers.delete(code);
       const currentLobby = lobbies.get(code);
-      if (!currentLobby) return; // lobby was deleted before timer fired
+      if (!currentLobby) return;
       currentLobby.matchPhase = MatchPhase.Warmup;
       lobbyKills.delete(code);
       io.to(code).emit('match:reset');
       console.log(`lobby ${code} — reset to warmup`);
     }, MATCH.victoryDisplayMs);
+
+    victoryTimers.set(code, timer);
+    console.log(`lobby ${code} — victory phase, resetting in ${MATCH.victoryDisplayMs}ms`);
   }
 }
