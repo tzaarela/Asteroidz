@@ -1,7 +1,7 @@
 import type { Socket, Server } from 'socket.io';
 import type { ClientToServerEvents, ServerToClientEvents } from '@asteroidz/shared';
-import { MatchPhase, PLAYER_COLORS } from '@asteroidz/shared';
-import type { LobbyState, PlayerInfo } from '@asteroidz/shared';
+import { MatchPhase, PLAYER_COLORS, MATCH } from '@asteroidz/shared';
+import type { LobbyState, PlayerInfo, ScoreEntry } from '@asteroidz/shared';
 
 type GameSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 type GameServer = Server<ClientToServerEvents, ServerToClientEvents>;
@@ -13,6 +13,9 @@ const socketToLobby = new Map<string, string>();
 
 // Maps lobby code → set of hex colors currently in use
 const lobbyColors = new Map<string, Set<string>>();
+
+// Maps lobby code → (playerId → kill count)
+const matchScores = new Map<string, Map<string, number>>();
 
 function generateCode(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -112,6 +115,7 @@ export function leaveLobby(socket: GameSocket, io: GameServer): void {
   if (lobby.players.length === 0) {
     lobbies.delete(code);
     lobbyColors.delete(code);
+    matchScores.delete(code);
     console.log(`lobby ${code} deleted — no players remaining`);
     return;
   }
@@ -131,4 +135,35 @@ export function handleDisconnect(socket: GameSocket, io: GameServer): void {
 
 export function getPlayerLobbyCode(socketId: string): string | undefined {
   return socketToLobby.get(socketId);
+}
+
+export function recordKill(
+  lobbyCode: string,
+  killerId: string,
+): { scores: ScoreEntry[]; winnerId: string | null } {
+  const lobby = lobbies.get(lobbyCode);
+  if (!lobby) return { scores: [], winnerId: null };
+
+  // Lazily initialise scores for every current player
+  let scores = matchScores.get(lobbyCode);
+  if (!scores) {
+    scores = new Map(lobby.players.map((p) => [p.id, 0]));
+    matchScores.set(lobbyCode, scores);
+  }
+
+  const prev = scores.get(killerId) ?? 0;
+  const next = prev + 1;
+  scores.set(killerId, next);
+
+  const scoreArray: ScoreEntry[] = lobby.players.map((p) => ({
+    playerId: p.id,
+    kills: scores!.get(p.id) ?? 0,
+  }));
+
+  const winnerId = next >= MATCH.killsToWin ? killerId : null;
+  if (winnerId) {
+    lobby.matchPhase = MatchPhase.Victory;
+  }
+
+  return { scores: scoreArray, winnerId };
 }

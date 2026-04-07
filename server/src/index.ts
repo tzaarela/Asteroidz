@@ -3,7 +3,7 @@ import { createServer } from 'http';
 import path from 'path';
 import { Server } from 'socket.io';
 import type { ClientToServerEvents, ServerToClientEvents } from '@asteroidz/shared';
-import { createLobby, joinLobby, leaveLobby, handleDisconnect, getPlayerLobbyCode } from './lobby/lobbyManager.js';
+import { createLobby, joinLobby, leaveLobby, handleDisconnect, getPlayerLobbyCode, recordKill } from './lobby/lobbyManager.js';
 
 const PORT = process.env.PORT ?? 3000;
 const isProd = process.env.NODE_ENV === 'production';
@@ -46,6 +46,23 @@ io.on('connection', (socket) => {
     const lobbyCode = getPlayerLobbyCode(socket.id);
     if (!lobbyCode) return;
     socket.to(lobbyCode).emit('player:shoot', { playerId: socket.id, ...payload });
+  });
+
+  socket.on('player:hit', ({ targetId }) => {
+    const lobbyCode = getPlayerLobbyCode(socket.id);
+    if (!lobbyCode) return;
+    const { scores, winnerId } = recordKill(lobbyCode, socket.id);
+    io.to(lobbyCode).emit('player:died', { playerId: targetId, killerId: socket.id });
+    io.to(lobbyCode).emit('match:score', { scores });
+    if (winnerId) {
+      io.to(lobbyCode).emit('match:winner', { winnerId, scores });
+    }
+  });
+
+  socket.on('player:respawn', ({ x, y }) => {
+    const lobbyCode = getPlayerLobbyCode(socket.id);
+    if (!lobbyCode) return;
+    io.to(lobbyCode).emit('player:respawn', { playerId: socket.id, x, y });
   });
 });
 
