@@ -3,6 +3,7 @@ import type { LobbyState } from '@asteroidz/shared';
 import { MatchPhase, ARENA, PHYSICS, SHIP } from '@asteroidz/shared';
 import { on, off, emit, getSocketId } from '../network/socket';
 import { LobbyPanel } from '../ui/LobbyPanel';
+import { MovementSystem } from '../systems/movement';
 
 const STAR_COUNT = 300;
 const STAR_SEED = 42;
@@ -14,6 +15,8 @@ export class GameScene extends Phaser.Scene {
   private titleText!: Phaser.GameObjects.Text;
 
   private shipSprite: Phaser.Physics.Arcade.Sprite | null = null;
+  private movementSystem: MovementSystem | null = null;
+  private keys: { W: Phaser.Input.Keyboard.Key; A: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key } | null = null;
   private matchActive = false;
 
   constructor() {
@@ -24,12 +27,19 @@ export class GameScene extends Phaser.Scene {
     this.lobbyState = data.lobbyState;
     this.myId = getSocketId() ?? '';
     this.shipSprite = null;
+    this.movementSystem = null;
     this.matchActive = false;
   }
 
   create(): void {
     this.physics.world.setBounds(0, 0, ARENA.worldWidth, ARENA.worldHeight);
     this.cameras.main.setBounds(0, 0, ARENA.worldWidth, ARENA.worldHeight);
+
+    this.keys = this.input.keyboard!.addKeys('W,A,D') as {
+      W: Phaser.Input.Keyboard.Key;
+      A: Phaser.Input.Keyboard.Key;
+      D: Phaser.Input.Keyboard.Key;
+    };
 
     this.add.rectangle(
       ARENA.worldWidth / 2,
@@ -134,6 +144,11 @@ export class GameScene extends Phaser.Scene {
     body.setCircle(s, 0, 0);
 
     this.setFollowTarget(this.shipSprite);
+    this.movementSystem = new MovementSystem(this, this.shipSprite, this.keys!);
+  }
+
+  update(_time: number, delta: number): void {
+    this.movementSystem?.update(delta);
   }
 
   private onLeave(): void {
