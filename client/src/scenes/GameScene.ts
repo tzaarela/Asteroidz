@@ -6,6 +6,7 @@ import { LobbyPanel } from '../ui/LobbyPanel';
 import { MovementSystem } from '../systems/movement';
 import { RemotePlayerSystem } from '../systems/remotePlayerSystem';
 import { ShootingSystem } from '../systems/shooting';
+import { RemoteBulletSystem } from '../systems/remoteBulletSystem';
 
 const STAR_COUNT = 300;
 const STAR_SEED = 42;
@@ -20,6 +21,7 @@ export class GameScene extends Phaser.Scene {
   private movementSystem: MovementSystem | null = null;
   private shootingSystem: ShootingSystem | null = null;
   private remotePlayerSystem: RemotePlayerSystem | null = null;
+  private remoteBulletSystem: RemoteBulletSystem | null = null;
   private keys: { W: Phaser.Input.Keyboard.Key; A: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key } | null = null;
   private spaceKey: Phaser.Input.Keyboard.Key | null = null;
   private matchActive = false;
@@ -36,6 +38,7 @@ export class GameScene extends Phaser.Scene {
     this.movementSystem = null;
     this.shootingSystem = null;
     this.remotePlayerSystem = null;
+    this.remoteBulletSystem = null;
     this.matchActive = false;
     this.tickAccumulator = 0;
   }
@@ -87,6 +90,7 @@ export class GameScene extends Phaser.Scene {
       off('match:state', this.handleMatchState);
       this.shootingSystem?.destroy();
       this.remotePlayerSystem?.destroy();
+      this.remoteBulletSystem?.destroy();
     });
   }
 
@@ -133,6 +137,7 @@ export class GameScene extends Phaser.Scene {
 
     this.createLocalShip();
     this.remotePlayerSystem = new RemotePlayerSystem(this, this.myId, this.lobbyState);
+    this.remoteBulletSystem = new RemoteBulletSystem(this, () => this.lobbyState.players);
   };
 
   private createLocalShip(): void {
@@ -167,6 +172,7 @@ export class GameScene extends Phaser.Scene {
     this.movementSystem?.update(delta);
     this.shootingSystem?.update(time);
     this.remotePlayerSystem?.update();
+    this.remoteBulletSystem?.update();
 
     if (this.shipSprite) {
       this.tickAccumulator += delta;

@@ -42,6 +42,12 @@ io.on('connection', (socket) => {
     if (!lobbyCode) return;
     socket.to(lobbyCode).emit('player:update', { playerId: socket.id, ...transform });
   });
+
+  socket.on('player:shoot', (payload) => {
+    const lobbyCode = getPlayerLobbyCode(socket.id);
+    if (!lobbyCode) return;
+    socket.to(lobbyCode).emit('player:shoot', { playerId: socket.id, ...payload });
+  });
 });
 
 httpServer.listen(PORT, () => {
