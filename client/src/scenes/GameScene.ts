@@ -5,8 +5,7 @@ import { on, off, emit, getSocketId } from '../network/socket';
 import { LobbyPanel } from '../ui/LobbyPanel';
 import { MovementSystem } from '../systems/movement';
 import { RemotePlayerSystem } from '../systems/remotePlayerSystem';
-import { ShootingSystem } from '../systems/shooting';
-import { RemoteBulletSystem } from '../systems/remoteBulletSystem';
+import { BulletSystem } from '../systems/bulletSystem';
 
 const STAR_COUNT = 300;
 const STAR_SEED = 42;
@@ -19,11 +18,9 @@ export class GameScene extends Phaser.Scene {
 
   private shipSprite: Phaser.Physics.Arcade.Sprite | null = null;
   private movementSystem: MovementSystem | null = null;
-  private shootingSystem: ShootingSystem | null = null;
   private remotePlayerSystem: RemotePlayerSystem | null = null;
-  private remoteBulletSystem: RemoteBulletSystem | null = null;
-  private keys: { W: Phaser.Input.Keyboard.Key; A: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key } | null = null;
-  private spaceKey: Phaser.Input.Keyboard.Key | null = null;
+  private keys: { W: Phaser.Input.Keyboard.Key; A: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key; SPACE: Phaser.Input.Keyboard.Key } | null = null;
+  private bulletSystem: BulletSystem | null = null;
   private matchActive = false;
   private tickAccumulator = 0;
 
@@ -36,9 +33,7 @@ export class GameScene extends Phaser.Scene {
     this.myId = getSocketId() ?? '';
     this.shipSprite = null;
     this.movementSystem = null;
-    this.shootingSystem = null;
     this.remotePlayerSystem = null;
-    this.remoteBulletSystem = null;
     this.matchActive = false;
     this.tickAccumulator = 0;
   }
@@ -47,12 +42,12 @@ export class GameScene extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, ARENA.worldWidth, ARENA.worldHeight);
     this.cameras.main.setBounds(0, 0, ARENA.worldWidth, ARENA.worldHeight);
 
-    this.keys = this.input.keyboard!.addKeys('W,A,D') as {
+    this.keys = this.input.keyboard!.addKeys('W,A,D,SPACE') as {
       W: Phaser.Input.Keyboard.Key;
       A: Phaser.Input.Keyboard.Key;
       D: Phaser.Input.Keyboard.Key;
+      SPACE: Phaser.Input.Keyboard.Key;
     };
-    this.spaceKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
     this.add.rectangle(
       ARENA.worldWidth / 2,
@@ -88,9 +83,8 @@ export class GameScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       off('lobby:state', this.handleLobbyState);
       off('match:state', this.handleMatchState);
-      this.shootingSystem?.destroy();
       this.remotePlayerSystem?.destroy();
-      this.remoteBulletSystem?.destroy();
+      this.bulletSystem = null;
     });
   }
 
@@ -137,7 +131,12 @@ export class GameScene extends Phaser.Scene {
 
     this.createLocalShip();
     this.remotePlayerSystem = new RemotePlayerSystem(this, this.myId, this.lobbyState);
-    this.remoteBulletSystem = new RemoteBulletSystem(this, () => this.lobbyState.players);
+    this.bulletSystem = new BulletSystem(this, this.shipSprite!, this.keys!.SPACE);
+    this.physics.add.overlap(
+      this.bulletSystem.getBulletGroup(),
+      this.remotePlayerSystem.getShipGroup(),
+      this.onBulletHitPlayer as Phaser.Types.Physics.Arcade.ArcadePhysicsCallback,
+    );
   };
 
   private createLocalShip(): void {
@@ -165,14 +164,23 @@ export class GameScene extends Phaser.Scene {
 
     this.setFollowTarget(this.shipSprite);
     this.movementSystem = new MovementSystem(this, this.shipSprite, this.keys!);
-    this.shootingSystem = new ShootingSystem(this, this.shipSprite, this.spaceKey!, me.color);
   }
 
-  update(time: number, delta: number): void {
+  private onBulletHitPlayer = (
+    bullet: Phaser.Types.Physics.Arcade.GameObjectWithBody,
+    remoteShip: Phaser.Types.Physics.Arcade.GameObjectWithBody,
+  ): void => {
+    this.bulletSystem!.destroyBullet(bullet as Phaser.Physics.Arcade.Sprite);
+    const targetId = this.remotePlayerSystem!.getPlayerIdForSprite(
+      remoteShip as Phaser.Physics.Arcade.Sprite,
+    );
+    if (targetId) emit('player:hit', { targetId });
+  };
+
+  update(_time: number, delta: number): void {
     this.movementSystem?.update(delta);
-    this.shootingSystem?.update(time);
+    this.bulletSystem?.update(delta);
     this.remotePlayerSystem?.update();
-    this.remoteBulletSystem?.update();
 
     if (this.shipSprite) {
       this.tickAccumulator += delta;
