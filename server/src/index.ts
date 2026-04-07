@@ -18,9 +18,9 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
 });
 
 if (isProd) {
-  app.use(express.static('../client/dist'));
+  app.use(express.static(path.resolve(__dirname, '../../client/dist')));
   app.get('/game/:lobbyCode', (_req, res) => {
-    res.sendFile(path.resolve('../client/dist/index.html'));
+    res.sendFile(path.resolve(__dirname, '../../client/dist/index.html'));
   });
 } else {
   app.get('/game/:lobbyCode', (req, res) => {
