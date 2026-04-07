@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
-import type { LobbyState } from '@asteroidz/shared';
-import { MatchPhase, ARENA, PHYSICS, SHIP } from '@asteroidz/shared';
+import type { LobbyState, PlayerTransform } from '@asteroidz/shared';
+import { MatchPhase, ARENA, PHYSICS, SHIP, NETWORK } from '@asteroidz/shared';
 import { on, off, emit, getSocketId } from '../network/socket';
 import { LobbyPanel } from '../ui/LobbyPanel';
 import { MovementSystem } from '../systems/movement';
@@ -18,6 +18,7 @@ export class GameScene extends Phaser.Scene {
   private movementSystem: MovementSystem | null = null;
   private keys: { W: Phaser.Input.Keyboard.Key; A: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key } | null = null;
   private matchActive = false;
+  private tickAccumulator = 0;
 
   constructor() {
     super('GameScene');
@@ -29,6 +30,7 @@ export class GameScene extends Phaser.Scene {
     this.shipSprite = null;
     this.movementSystem = null;
     this.matchActive = false;
+    this.tickAccumulator = 0;
   }
 
   create(): void {
@@ -149,6 +151,27 @@ export class GameScene extends Phaser.Scene {
 
   update(_time: number, delta: number): void {
     this.movementSystem?.update(delta);
+
+    if (this.shipSprite) {
+      this.tickAccumulator += delta;
+      if (this.tickAccumulator >= NETWORK.tickRateMs) {
+        this.tickAccumulator -= NETWORK.tickRateMs;
+        this.sendPlayerState();
+      }
+    }
+  }
+
+  private sendPlayerState(): void {
+    if (!this.shipSprite) return;
+    const body = this.shipSprite.body as Phaser.Physics.Arcade.Body;
+    const payload: PlayerTransform = {
+      x: this.shipSprite.x,
+      y: this.shipSprite.y,
+      rotation: Phaser.Math.DegToRad(this.shipSprite.angle),
+      vx: body.velocity.x,
+      vy: body.velocity.y,
+    };
+    emit('player:update', payload);
   }
 
   private onLeave(): void {
