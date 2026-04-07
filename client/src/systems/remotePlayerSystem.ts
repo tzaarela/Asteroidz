@@ -34,7 +34,9 @@ export class RemotePlayerSystem {
       }
     }
 
-    on('player:update', this.handlePlayerUpdate);
+    on('player:update',   this.handlePlayerUpdate);
+    on('player:died',     this.handlePlayerDied);
+    on('player:respawn',  this.handlePlayerRespawn);
   }
 
   /** Called every frame from GameScene.update(). */
@@ -82,7 +84,9 @@ export class RemotePlayerSystem {
   }
 
   destroy(): void {
-    off('player:update', this.handlePlayerUpdate);
+    off('player:update',   this.handlePlayerUpdate);
+    off('player:died',     this.handlePlayerDied);
+    off('player:respawn',  this.handlePlayerRespawn);
     for (const [id] of [...this.ships]) {
       this.removePlayer(id);
     }
@@ -99,6 +103,26 @@ export class RemotePlayerSystem {
       if (entry.sprite === sprite) return id;
     }
   }
+
+  private handlePlayerDied = (payload: { playerId: string; killerId: string | null }): void => {
+    if (payload.playerId === this.myId) return;
+    const entry = this.ships.get(payload.playerId);
+    if (!entry) return;
+    entry.sprite.setActive(false).setVisible(false);
+    (entry.sprite.body as Phaser.Physics.Arcade.Body).setEnable(false);
+  };
+
+  private handlePlayerRespawn = (payload: { playerId: string; x: number; y: number }): void => {
+    if (payload.playerId === this.myId) return;
+    const entry = this.ships.get(payload.playerId);
+    if (!entry) return;
+    const snap: PlayerTransform = { x: payload.x, y: payload.y, rotation: 0, vx: 0, vy: 0 };
+    entry.prev   = { ...snap };
+    entry.target = { ...snap };
+    entry.sprite.setPosition(payload.x, payload.y);
+    entry.sprite.setActive(true).setVisible(true);
+    (entry.sprite.body as Phaser.Physics.Arcade.Body).setEnable(true);
+  };
 
   private handlePlayerUpdate = (payload: PlayerTransform & { playerId: string }): void => {
     if (payload.playerId === this.myId) return;
