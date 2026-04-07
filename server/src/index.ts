@@ -3,7 +3,7 @@ import { createServer } from 'http';
 import path from 'path';
 import { Server } from 'socket.io';
 import type { ClientToServerEvents, ServerToClientEvents } from '@asteroidz/shared';
-import { createLobby, joinLobby, leaveLobby, startMatch, handleDisconnect, getPlayerLobbyCode } from './lobby/lobbyManager.js';
+import { createLobby, joinLobby, leaveLobby, startMatch, handleDisconnect, getPlayerLobbyCode, handleKill } from './lobby/lobbyManager.js';
 
 const PORT = process.env.PORT ?? 3000;
 const isProd = process.env.NODE_ENV === 'production';
@@ -47,6 +47,14 @@ io.on('connection', (socket) => {
     const lobbyCode = getPlayerLobbyCode(socket.id);
     if (!lobbyCode) return;
     socket.to(lobbyCode).emit('player:shoot', { playerId: socket.id, ...payload });
+  });
+
+  socket.on('player:hit', ({ targetId }) => handleKill(socket, io, targetId));
+
+  socket.on('player:respawn', ({ x, y }) => {
+    const lobbyCode = getPlayerLobbyCode(socket.id);
+    if (!lobbyCode) return;
+    io.to(lobbyCode).emit('player:respawn', { playerId: socket.id, x, y });
   });
 });
 
