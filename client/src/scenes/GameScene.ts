@@ -4,6 +4,7 @@ import { MatchPhase, ARENA, PHYSICS, SHIP, NETWORK } from '@asteroidz/shared';
 import { on, off, emit, getSocketId } from '../network/socket';
 import { LobbyPanel } from '../ui/LobbyPanel';
 import { MovementSystem } from '../systems/movement';
+import { RemotePlayerSystem } from '../systems/remotePlayerSystem';
 
 const STAR_COUNT = 300;
 const STAR_SEED = 42;
@@ -16,6 +17,7 @@ export class GameScene extends Phaser.Scene {
 
   private shipSprite: Phaser.Physics.Arcade.Sprite | null = null;
   private movementSystem: MovementSystem | null = null;
+  private remotePlayerSystem: RemotePlayerSystem | null = null;
   private keys: { W: Phaser.Input.Keyboard.Key; A: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key } | null = null;
   private matchActive = false;
   private tickAccumulator = 0;
@@ -29,6 +31,7 @@ export class GameScene extends Phaser.Scene {
     this.myId = getSocketId() ?? '';
     this.shipSprite = null;
     this.movementSystem = null;
+    this.remotePlayerSystem = null;
     this.matchActive = false;
     this.tickAccumulator = 0;
   }
@@ -77,6 +80,7 @@ export class GameScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       off('lobby:state', this.handleLobbyState);
       off('match:state', this.handleMatchState);
+      this.remotePlayerSystem?.destroy();
     });
   }
 
@@ -108,6 +112,8 @@ export class GameScene extends Phaser.Scene {
     this.lobbyState = lobbyState;
     if (!this.matchActive) {
       this.lobbyPanel.update(lobbyState, this.myId);
+    } else {
+      this.remotePlayerSystem?.syncWithLobbyState(lobbyState);
     }
   };
 
@@ -120,6 +126,7 @@ export class GameScene extends Phaser.Scene {
     this.lobbyPanel.destroy();
 
     this.createLocalShip();
+    this.remotePlayerSystem = new RemotePlayerSystem(this, this.myId, this.lobbyState);
   };
 
   private createLocalShip(): void {
@@ -151,6 +158,7 @@ export class GameScene extends Phaser.Scene {
 
   update(_time: number, delta: number): void {
     this.movementSystem?.update(delta);
+    this.remotePlayerSystem?.update();
 
     if (this.shipSprite) {
       this.tickAccumulator += delta;
