@@ -17,4 +17,6 @@ Read the implementation note in the UPDATE field of the task using this method, 
 claude.ai monday.com - Get Updates (MCP)(objectId: "", objectType: "Item")
 
 
-When I tell you to make a Pull Request for the task, set the task status to done. 
+When I tell you to make a Pull Request for the task, make sure to only use GitHub MCP and not bash commands.
+
+Lastly set the task status to done in monday. 
