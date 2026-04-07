@@ -66,10 +66,15 @@ export class BulletSystem {
     (bullet.body as Phaser.Physics.Arcade.Body).setEnable(false);
   }
 
+  resetAmmo(): void {
+    this.ammo = AMMO.startingAmmo;
+  }
+
   private fire(now: number): void {
     const x = this.ship.x;
     const y = this.ship.y;
-    const rotation = Phaser.Math.DegToRad(this.ship.angle);
+    // Subtract 90° to match the local velocity direction (ship texture points north, Phaser angle=0 is east)
+    const rotation = Phaser.Math.DegToRad(this.ship.angle - 90);
 
     const bullet = this.bulletGroup.get(x, y, 'bullet') as Phaser.Physics.Arcade.Sprite | null;
     if (!bullet) return; // pool exhausted
