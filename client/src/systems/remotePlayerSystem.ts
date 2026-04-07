@@ -19,11 +19,13 @@ export class RemotePlayerSystem {
   private myId: string;
   private lobbyState: LobbyState;
   private ships = new Map<string, RemoteShipState>();
+  private shipGroup: Phaser.Physics.Arcade.Group;
 
   constructor(scene: Phaser.Scene, myId: string, lobbyState: LobbyState) {
     this.scene = scene;
     this.myId = myId;
     this.lobbyState = lobbyState;
+    this.shipGroup = scene.physics.add.group();
 
     // Pre-spawn sprites for players already in the lobby
     for (const info of lobbyState.players) {
@@ -86,6 +88,18 @@ export class RemotePlayerSystem {
     }
   }
 
+  /** Returns the Phaser group containing all remote ship sprites — use for overlap registration. */
+  getShipGroup(): Phaser.Physics.Arcade.Group {
+    return this.shipGroup;
+  }
+
+  /** Resolves a remote ship sprite back to the player's socket ID. */
+  getPlayerIdForSprite(sprite: Phaser.Physics.Arcade.Sprite): string | undefined {
+    for (const [id, entry] of this.ships) {
+      if (entry.sprite === sprite) return id;
+    }
+  }
+
   private handlePlayerUpdate = (payload: PlayerTransform & { playerId: string }): void => {
     if (payload.playerId === this.myId) return;
 
@@ -113,7 +127,8 @@ export class RemotePlayerSystem {
     const sprite = this.scene.physics.add.sprite(0, 0, textureKey);
     const body = sprite.body as Phaser.Physics.Arcade.Body;
     body.setCircle(SHIP.size, 0, 0);
-    body.setImmovable(true); // Not driven by local physics — exists for future hit detection
+    body.setImmovable(true); // Not driven by local physics — exists for hit detection
+    this.shipGroup.add(sprite);
 
     const nameLabel = this.scene.add
       .text(0, 0, name, { fontSize: '12px', color: '#ffffff', fontFamily: 'monospace' })
@@ -126,6 +141,7 @@ export class RemotePlayerSystem {
   private removePlayer(id: string): void {
     const entry = this.ships.get(id);
     if (!entry) return;
+    this.shipGroup.remove(entry.sprite, false, false);
     entry.sprite.destroy();
     entry.nameLabel.destroy();
     this.ships.delete(id);
