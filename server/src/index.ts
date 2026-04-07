@@ -18,9 +18,9 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
 });
 
 if (isProd) {
-  app.use(express.static('../client/dist'));
+  app.use(express.static(path.resolve(__dirname, '../../client/dist')));
   app.get('/game/:lobbyCode', (_req, res) => {
-    res.sendFile(path.resolve('../client/dist/index.html'));
+    res.sendFile(path.resolve(__dirname, '../../client/dist/index.html'));
   });
 } else {
   app.get('/game/:lobbyCode', (req, res) => {
@@ -41,6 +41,12 @@ io.on('connection', (socket) => {
     const lobbyCode = getPlayerLobbyCode(socket.id);
     if (!lobbyCode) return;
     socket.to(lobbyCode).emit('player:update', { playerId: socket.id, ...transform });
+  });
+
+  socket.on('player:shoot', (payload) => {
+    const lobbyCode = getPlayerLobbyCode(socket.id);
+    if (!lobbyCode) return;
+    socket.to(lobbyCode).emit('player:shoot', { playerId: socket.id, ...payload });
   });
 });
 

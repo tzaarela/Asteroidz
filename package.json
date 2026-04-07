@@ -9,11 +9,13 @@
   ],
   "scripts": {
     "dev": "concurrently -n client,server -p \"[{name}]\" \"pnpm --filter @asteroidz/client dev\" \"pnpm --filter @asteroidz/server dev\"",
-    "build": "tsc --build",
+    "build": "pnpm --filter @asteroidz/shared build && concurrently -n server,client -p \"[{name}]\" \"pnpm --filter @asteroidz/server build\" \"pnpm --filter @asteroidz/client build\"",
+    "start": "cross-env NODE_ENV=production node server/dist/index.js",
     "clean": "tsc --build --clean"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",
+    "cross-env": "^7.0.3",
     "typescript": "~5.8.0"
   }
 }
