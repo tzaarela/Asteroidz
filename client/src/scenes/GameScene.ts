@@ -5,6 +5,7 @@ import { on, off, emit, getSocketId } from '../network/socket';
 import { LobbyPanel } from '../ui/LobbyPanel';
 import { MovementSystem } from '../systems/movement';
 import { RemotePlayerSystem } from '../systems/remotePlayerSystem';
+import { ShootingSystem } from '../systems/shooting';
 
 const STAR_COUNT = 300;
 const STAR_SEED = 42;
@@ -17,8 +18,10 @@ export class GameScene extends Phaser.Scene {
 
   private shipSprite: Phaser.Physics.Arcade.Sprite | null = null;
   private movementSystem: MovementSystem | null = null;
+  private shootingSystem: ShootingSystem | null = null;
   private remotePlayerSystem: RemotePlayerSystem | null = null;
   private keys: { W: Phaser.Input.Keyboard.Key; A: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key } | null = null;
+  private spaceKey: Phaser.Input.Keyboard.Key | null = null;
   private matchActive = false;
   private tickAccumulator = 0;
 
@@ -31,6 +34,7 @@ export class GameScene extends Phaser.Scene {
     this.myId = getSocketId() ?? '';
     this.shipSprite = null;
     this.movementSystem = null;
+    this.shootingSystem = null;
     this.remotePlayerSystem = null;
     this.matchActive = false;
     this.tickAccumulator = 0;
@@ -45,6 +49,7 @@ export class GameScene extends Phaser.Scene {
       A: Phaser.Input.Keyboard.Key;
       D: Phaser.Input.Keyboard.Key;
     };
+    this.spaceKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
     this.add.rectangle(
       ARENA.worldWidth / 2,
@@ -80,6 +85,7 @@ export class GameScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       off('lobby:state', this.handleLobbyState);
       off('match:state', this.handleMatchState);
+      this.shootingSystem?.destroy();
       this.remotePlayerSystem?.destroy();
     });
   }
@@ -154,10 +160,12 @@ export class GameScene extends Phaser.Scene {
 
     this.setFollowTarget(this.shipSprite);
     this.movementSystem = new MovementSystem(this, this.shipSprite, this.keys!);
+    this.shootingSystem = new ShootingSystem(this, this.shipSprite, this.spaceKey!, me.color);
   }
 
-  update(_time: number, delta: number): void {
+  update(time: number, delta: number): void {
     this.movementSystem?.update(delta);
+    this.shootingSystem?.update(time);
     this.remotePlayerSystem?.update();
 
     if (this.shipSprite) {
