@@ -22,6 +22,7 @@ export class GameScene extends Phaser.Scene {
   private remotePlayerSystem: RemotePlayerSystem | null = null;
   private bulletSystem: BulletSystem | null = null;
   private remoteBulletSystem: RemoteBulletSystem | null = null;
+  private bulletHitCollider: Phaser.Physics.Arcade.Collider | null = null;
   private keys: { W: Phaser.Input.Keyboard.Key; A: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key; SPACE: Phaser.Input.Keyboard.Key } | null = null;
   private matchActive = false;
   private tickAccumulator = 0;
@@ -85,11 +86,13 @@ export class GameScene extends Phaser.Scene {
 
     on('lobby:state',  this.handleLobbyState);
     on('match:state',  this.handleMatchState);
+    on('match:reset',  this.handleMatchReset);
     on('player:died',  this.handlePlayerDied);
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       off('lobby:state',  this.handleLobbyState);
       off('match:state',  this.handleMatchState);
+      off('match:reset',  this.handleMatchReset);
       off('player:died',  this.handlePlayerDied);
       this.remotePlayerSystem?.destroy();
       this.remoteBulletSystem?.destroy();
@@ -142,11 +145,11 @@ export class GameScene extends Phaser.Scene {
     this.remotePlayerSystem = new RemotePlayerSystem(this, this.myId, this.lobbyState);
     this.remoteBulletSystem = new RemoteBulletSystem(this, () => this.lobbyState.players);
     this.bulletSystem = new BulletSystem(this, this.shipSprite!, this.keys!.SPACE);
-    this.physics.add.overlap(
+    this.bulletHitCollider = this.physics.add.overlap(
       this.bulletSystem.getBulletGroup(),
       this.remotePlayerSystem.getShipGroup(),
       this.onBulletHitPlayer as Phaser.Types.Physics.Arcade.ArcadePhysicsCallback,
-    );
+    ) as Phaser.Physics.Arcade.Collider;
   };
 
   private createLocalShip(): void {
@@ -248,6 +251,46 @@ export class GameScene extends Phaser.Scene {
     this.isDead = false;
     emit('player:respawn', { x, y });
   }
+
+  private handleMatchReset = (): void => {
+    this.bulletHitCollider?.destroy();
+    this.bulletHitCollider = null;
+    this.shipSprite?.destroy();
+    this.shipSprite = null;
+    this.movementSystem = null;
+    this.remotePlayerSystem?.destroy();
+    this.remotePlayerSystem = null;
+    this.remoteBulletSystem?.destroy();
+    this.remoteBulletSystem = null;
+    this.bulletSystem = null;
+    this.isDead = false;
+
+    this.cameras.main.stopFollow();
+    this.cameras.main.setScroll(
+      ARENA.worldWidth / 2 - this.scale.width / 2,
+      ARENA.worldHeight / 2 - this.scale.height / 2,
+    );
+
+    this.titleText = this.add
+      .text(this.scale.width / 2, 40, 'ASTEROIDZ', {
+        fontSize: '28px',
+        color: '#ffffff',
+        fontStyle: 'bold',
+        fontFamily: 'monospace',
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0);
+
+    this.lobbyPanel = new LobbyPanel(
+      this,
+      this.lobbyState,
+      this.myId,
+      () => this.onLeave(),
+      () => this.onStartMatch(),
+    );
+
+    this.matchActive = false;
+  };
 
   private onLeave(): void {
     emit('lobby:leave');
