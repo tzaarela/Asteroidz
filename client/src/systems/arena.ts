@@ -6,43 +6,63 @@ interface ChunkState extends ArenaChunk {
   centerX: number;
   centerY: number;
   centerAngle: number;
-  bodySprite: Phaser.Physics.Arcade.Image;
+  body: MatterJS.BodyType | null;
 }
 
 export class ArenaSystem {
   private scene: Phaser.Scene;
-  private staticGroup: Phaser.Physics.Arcade.StaticGroup;
   private graphics: Phaser.GameObjects.Graphics;
   private chunks: Map<string, ChunkState>;
+  /** Reverse lookup: Matter body id → chunk id. Used by the collision router. */
+  private bodyIdToChunk = new Map<number, string>();
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
     this.chunks = new Map();
-    this.staticGroup = scene.physics.add.staticGroup();
     this.graphics = scene.add.graphics();
     this.generateChunks();
     this.drawAll();
   }
 
-  getStaticGroup(): Phaser.Physics.Arcade.StaticGroup {
-    return this.staticGroup;
+  /** Look up a wall chunk id from a Matter body id. */
+  getChunkIdForBody(bodyId: number): string | undefined {
+    return this.bodyIdToChunk.get(bodyId);
   }
 
   destroyChunk(chunkId: string): void {
     const chunk = this.chunks.get(chunkId);
     if (!chunk || chunk.destroyed) return;
     chunk.destroyed = true;
-    this.staticGroup.remove(chunk.bodySprite, true, true);
+    if (chunk.body) {
+      this.bodyIdToChunk.delete(chunk.body.id);
+      this.scene.matter.world.remove(chunk.body);
+      chunk.body = null;
+    }
     this.drawAll();
   }
 
   reset(): void {
-    this.staticGroup.clear(true, true);
+    for (const chunk of this.chunks.values()) {
+      if (chunk.body) {
+        this.scene.matter.world.remove(chunk.body);
+      }
+    }
     this.graphics.clear();
     this.chunks.clear();
-    this.staticGroup = this.scene.physics.add.staticGroup();
+    this.bodyIdToChunk.clear();
     this.generateChunks();
     this.drawAll();
+  }
+
+  destroy(): void {
+    for (const chunk of this.chunks.values()) {
+      if (chunk.body) {
+        this.scene.matter.world.remove(chunk.body);
+      }
+    }
+    this.chunks.clear();
+    this.bodyIdToChunk.clear();
+    this.graphics.destroy();
   }
 
   // No per-frame work — arena is purely event-driven
@@ -50,7 +70,7 @@ export class ArenaSystem {
 
   private generateChunks(): void {
     // LCG seeded RNG — identical algorithm to createStarField() in GameScene
-    let seed = ARENA.arenaChunkSeed;
+    let seed: number = ARENA.arenaChunkSeed;
     const rand = (): number => {
       seed = (seed * 1664525 + 1013904223) & 0xffffffff;
       return (seed >>> 0) / 0xffffffff;
@@ -60,9 +80,6 @@ export class ArenaSystem {
     const worldCY = ARENA.worldHeight / 2;
     const arcSpan = (2 * Math.PI) / ARENA.wallChunkCount;
     const halfEffectiveArc = (arcSpan * (1 - 2 * ARENA.chunkArcGapFraction)) / 2;
-    const depth = ARENA.chunkOuterRadius - ARENA.chunkInnerRadius;
-    const avgRadius = (ARENA.chunkInnerRadius + ARENA.chunkOuterRadius) / 2;
-    const chordLength = 2 * avgRadius * Math.sin(halfEffectiveArc);
 
     for (let i = 0; i < ARENA.wallChunkCount; i++) {
       const id = `chunk_${i}`;
@@ -81,21 +98,21 @@ export class ArenaSystem {
         ARENA.chunkVertexJitter, rand,
       );
 
-      // Axis-aligned physics body: orient to best match the chunk's tangential direction
-      const absSin = Math.abs(Math.sin(centerAngle));
-      const absCos = Math.abs(Math.cos(centerAngle));
-      const bodyW = absSin > absCos ? chordLength : depth;
-      const bodyH = absSin > absCos ? depth : chordLength;
+      // Matter polygon body: fromVertices takes world-space vertex arrays and
+      // re-centers them around (x, y). Passing the vertices' actual centroid as
+      // the anchor keeps the body aligned with the drawn polygon exactly.
+      const body = this.scene.matter.add.fromVertices(
+        centerX, centerY,
+        [vertices],
+        { isStatic: true, label: `wall-${id}` },
+        true,   // addToWorld
+        0.01,   // removeCollinear tolerance
+        10,     // minimumArea
+      );
 
-      // Invisible static body carrier — '__DEFAULT' is Phaser's built-in 32×32 white texture
-      const bodySprite = this.staticGroup.create(centerX, centerY, '__DEFAULT') as Phaser.Physics.Arcade.Image;
-      bodySprite.setAlpha(0);
-      bodySprite.setDisplaySize(1, 1);
-      const staticBody = bodySprite.body as Phaser.Physics.Arcade.StaticBody;
-      staticBody.setSize(bodyW, bodyH);
-      staticBody.reset(centerX, centerY);
-
-      bodySprite.setData('chunkId', id);
+      if (body) {
+        this.bodyIdToChunk.set(body.id, id);
+      }
 
       this.chunks.set(id, {
         id,
@@ -104,7 +121,7 @@ export class ArenaSystem {
         centerX,
         centerY,
         centerAngle,
-        bodySprite,
+        body,
       });
     }
   }
@@ -114,10 +131,18 @@ export class ArenaSystem {
 
     for (const chunk of this.chunks.values()) {
       if (chunk.destroyed) continue;
+      // Matter.add.fromVertices re-centers the source vertices around the body's
+      // centroid, so the physics body's world-space vertices can diverge from the
+      // original array. Draw from body.vertices when we have a body so the visual
+      // and the collider stay perfectly aligned.
+      const bodyVerts = chunk.body?.vertices;
+      const pts: Phaser.Types.Math.Vector2Like[] = bodyVerts
+        ? bodyVerts.map(v => ({ x: v.x, y: v.y }))
+        : chunk.vertices;
       this.graphics.fillStyle(0x4a4a5a, 1);
       this.graphics.lineStyle(2, 0x7a7a9a, 0.8);
-      this.graphics.fillPoints(chunk.vertices as Phaser.Types.Math.Vector2Like[], true, true);
-      this.graphics.strokePoints(chunk.vertices as Phaser.Types.Math.Vector2Like[], true, true);
+      this.graphics.fillPoints(pts, true, true);
+      this.graphics.strokePoints(pts, true, true);
     }
   }
 }

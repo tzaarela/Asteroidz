@@ -6,15 +6,15 @@ import type { InputState } from './movement';
 
 export class BulletSystem {
   private scene: Phaser.Scene;
-  private ship: Phaser.Physics.Arcade.Sprite;
+  private ship: Phaser.Physics.Matter.Sprite;
   private input: InputState;
-  private bulletGroup: Phaser.Physics.Arcade.Group;
+  private bullets = new Set<Phaser.Physics.Matter.Sprite>();
   private ammo: number = AMMO.startingAmmo;
   private lastFireTime: number = 0;
 
   constructor(
     scene: Phaser.Scene,
-    ship: Phaser.Physics.Arcade.Sprite,
+    ship: Phaser.Physics.Matter.Sprite,
     input: InputState,
   ) {
     this.scene = scene;
@@ -22,23 +22,16 @@ export class BulletSystem {
     this.input = input;
 
     // Generate a small bright circle texture for bullets
-    const gfx = scene.add.graphics();
-    gfx.fillStyle(0xffffff, 1);
-    gfx.fillCircle(BULLET.size, BULLET.size, BULLET.size);
-    gfx.generateTexture('bullet', BULLET.size * 2, BULLET.size * 2);
-    gfx.destroy();
-
-    this.bulletGroup = scene.physics.add.group({
-      maxSize: 50,
-      runChildUpdate: false,
-    });
+    if (!scene.textures.exists('bullet')) {
+      const gfx = scene.add.graphics();
+      gfx.fillStyle(0xffffff, 1);
+      gfx.fillCircle(BULLET.size, BULLET.size, BULLET.size);
+      gfx.generateTexture('bullet', BULLET.size * 2, BULLET.size * 2);
+      gfx.destroy();
+    }
   }
 
-  getBulletGroup(): Phaser.Physics.Arcade.Group {
-    return this.bulletGroup;
-  }
-
-  update(delta: number): void {
+  update(_delta: number): void {
     const now = this.scene.time.now;
 
     // Fire when Space held, ammo available, and fire rate allows
@@ -51,10 +44,7 @@ export class BulletSystem {
     }
 
     // Despawn bullets that have exceeded max travel distance
-    for (const obj of this.bulletGroup.getChildren()) {
-      const sprite = obj as Phaser.Physics.Arcade.Sprite;
-      if (!sprite.active) continue;
-
+    for (const sprite of this.bullets) {
       const bullet = Bullet.from(sprite);
       if (!bullet) continue;
       const dx = sprite.x - bullet.spawnX;
@@ -65,9 +55,15 @@ export class BulletSystem {
     }
   }
 
-  destroyBullet(bullet: Phaser.Physics.Arcade.Sprite): void {
-    this.bulletGroup.killAndHide(bullet);
-    (bullet.body as Phaser.Physics.Arcade.Body).setEnable(false);
+  destroyBullet(bullet: Phaser.Physics.Matter.Sprite): void {
+    if (!this.bullets.has(bullet)) return;
+    this.bullets.delete(bullet);
+    bullet.destroy();
+  }
+
+  /** True if this bullet belongs to the local bullet system — used by the collision router. */
+  owns(bullet: Phaser.Physics.Matter.Sprite): boolean {
+    return this.bullets.has(bullet);
   }
 
   resetAmmo(): void {
@@ -82,25 +78,33 @@ export class BulletSystem {
     return this.ammo;
   }
 
+  destroy(): void {
+    for (const sprite of this.bullets) {
+      sprite.destroy();
+    }
+    this.bullets.clear();
+  }
+
   private fire(now: number): void {
     const x = this.ship.x;
     const y = this.ship.y;
     // Subtract 90° to match the local velocity direction (ship texture points north, Phaser angle=0 is east)
     const rotation = Phaser.Math.DegToRad(this.ship.angle - 90);
 
-    const sprite = this.bulletGroup.get(x, y, 'bullet') as Phaser.Physics.Arcade.Sprite | null;
-    if (!sprite) return; // pool exhausted
+    const sprite = this.scene.matter.add.sprite(x, y, 'bullet', undefined, {
+      shape: { type: 'circle', radius: BULLET.size },
+      isSensor: true,
+      frictionAir: 0,
+      label: 'bullet-local',
+    });
 
-    sprite.setActive(true).setVisible(true);
-
-    const body = sprite.body as Phaser.Physics.Arcade.Body;
-    body.setEnable(true);
-    body.setCircle(BULLET.size);
-    // Ship texture points north; angle=0 is east in Phaser — subtract 90° to align
-    const vel = this.scene.physics.velocityFromAngle(this.ship.angle - 90, BULLET.speed);
-    body.velocity.set(vel.x, vel.y);
+    const body = sprite.body as MatterJS.BodyType;
+    const vx = Math.cos(rotation) * BULLET.speed;
+    const vy = Math.sin(rotation) * BULLET.speed;
+    this.scene.matter.body.setVelocity(body, { x: vx, y: vy });
 
     new Bullet(sprite, x, y);
+    this.bullets.add(sprite);
 
     this.ammo -= 1;
     this.lastFireTime = now;

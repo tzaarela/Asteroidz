@@ -6,13 +6,12 @@ import type { PlayerInfo } from '@asteroidz/shared';
 
 export class RemoteBulletSystem {
   private scene: Phaser.Scene;
-  private bullets: Phaser.Physics.Arcade.Group;
+  private bullets = new Set<Phaser.Physics.Matter.Sprite>();
   private getPlayers: () => PlayerInfo[];
 
   constructor(scene: Phaser.Scene, getPlayers: () => PlayerInfo[]) {
     this.scene = scene;
     this.getPlayers = getPlayers;
-    this.bullets = scene.physics.add.group();
     on('player:shoot', this.handleRemoteShoot);
   }
 
@@ -39,38 +38,43 @@ export class RemoteBulletSystem {
     const color = player?.color ?? '#FFFFFF';
     const textureKey = this.ensureTexture(color);
 
-    const sprite = this.bullets.get(payload.x, payload.y, textureKey) as Phaser.Physics.Arcade.Sprite | null;
-    if (!sprite) return;
+    const sprite = this.scene.matter.add.sprite(payload.x, payload.y, textureKey, undefined, {
+      shape: { type: 'circle', radius: BULLET.size },
+      isSensor: true,
+      frictionAir: 0,
+      label: 'bullet-remote',
+    });
 
-    sprite.enableBody(true, payload.x, payload.y, true, true);
     new Bullet(sprite, payload.x, payload.y);
 
     const dx = Math.cos(payload.rotation);
     const dy = Math.sin(payload.rotation);
-    (sprite.body as Phaser.Physics.Arcade.Body).setVelocity(dx * BULLET.speed, dy * BULLET.speed);
+    this.scene.matter.body.setVelocity(
+      sprite.body as MatterJS.BodyType,
+      { x: dx * BULLET.speed, y: dy * BULLET.speed },
+    );
+
+    this.bullets.add(sprite);
   };
 
   update(): void {
-    this.bullets.getChildren().forEach((obj) => {
-      const sprite = obj as Phaser.Physics.Arcade.Sprite;
-      if (!sprite.active) return;
-
+    for (const sprite of this.bullets) {
       const bullet = Bullet.from(sprite);
-      if (!bullet) return;
+      if (!bullet) continue;
       const dx = sprite.x - bullet.spawnX;
       const dy = sprite.y - bullet.spawnY;
       if (dx * dx + dy * dy >= BULLET.maxDistance * BULLET.maxDistance) {
-        sprite.disableBody(true, true);
+        this.bullets.delete(sprite);
+        sprite.destroy();
       }
-    });
-  }
-
-  getBulletGroup(): Phaser.Physics.Arcade.Group {
-    return this.bullets;
+    }
   }
 
   destroy(): void {
     off('player:shoot', this.handleRemoteShoot);
-    this.bullets.clear(true, true);
+    for (const sprite of this.bullets) {
+      sprite.destroy();
+    }
+    this.bullets.clear();
   }
 }
