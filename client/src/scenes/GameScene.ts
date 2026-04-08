@@ -5,6 +5,8 @@ import { on, off, emit, getSocketId } from '../network/socket';
 import { LobbyPanel } from '../ui/LobbyPanel';
 import { PlayerListPanel } from '../ui/PlayerListPanel';
 import { MovementSystem } from '../systems/movement';
+import type { InputState } from '../systems/movement';
+import { TouchControls } from '../ui/touchControls';
 import { RemotePlayerSystem } from '../systems/remotePlayerSystem';
 import { BulletSystem } from '../systems/bulletSystem';
 import { RemoteBulletSystem } from '../systems/remoteBulletSystem';
@@ -30,6 +32,10 @@ export class GameScene extends Phaser.Scene {
   private pickupSystem: PickupSystem | null = null;
   private pickupCollider: Phaser.Physics.Arcade.Collider | null = null;
   private keys: { W: Phaser.Input.Keyboard.Key; A: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key; SPACE: Phaser.Input.Keyboard.Key } | null = null;
+  private inputState: InputState = { left: false, right: false, thrust: false, shoot: false };
+  private touchInput: InputState = { left: false, right: false, thrust: false, shoot: false };
+  private touchControls: TouchControls | null = null;
+  private isTouchDevice = false;
   private matchActive = false;
   private tickAccumulator = 0;
   private isDead = false;
@@ -50,6 +56,9 @@ export class GameScene extends Phaser.Scene {
     this.remoteBulletSystem = null;
     this.pickupSystem = null;
     this.pickupCollider = null;
+    this.touchControls = null;
+    this.inputState = { left: false, right: false, thrust: false, shoot: false };
+    this.touchInput = { left: false, right: false, thrust: false, shoot: false };
     this.matchActive = false;
     this.tickAccumulator = 0;
     this.isDead = false;
@@ -65,6 +74,11 @@ export class GameScene extends Phaser.Scene {
       D: Phaser.Input.Keyboard.Key;
       SPACE: Phaser.Input.Keyboard.Key;
     };
+
+    this.isTouchDevice =
+      'ontouchstart' in window ||
+      navigator.maxTouchPoints > 0 ||
+      this.sys.game.device.input.touch;
 
     this.add.rectangle(
       ARENA.worldWidth / 2,
@@ -118,6 +132,7 @@ export class GameScene extends Phaser.Scene {
       this.remotePlayerSystem?.destroy();
       this.remoteBulletSystem?.destroy();
       this.pickupSystem?.destroy();
+      this.touchControls?.destroy();
       this.bulletSystem = null;
     });
   }
@@ -172,7 +187,10 @@ export class GameScene extends Phaser.Scene {
     this.createLocalShip();
     this.remotePlayerSystem = new RemotePlayerSystem(this, this.myId, this.lobbyState);
     this.remoteBulletSystem = new RemoteBulletSystem(this, () => this.lobbyState.players);
-    this.bulletSystem = new BulletSystem(this, this.shipSprite!, this.keys!.SPACE);
+    this.bulletSystem = new BulletSystem(this, this.shipSprite!, this.inputState);
+    if (this.isTouchDevice) {
+      this.touchControls = new TouchControls(this, this.touchInput);
+    }
     this.bulletHitCollider = this.physics.add.overlap(
       this.bulletSystem.getBulletGroup(),
       this.remotePlayerSystem.getShipGroup(),
@@ -191,69 +209,69 @@ export class GameScene extends Phaser.Scene {
     }
   };
 
-    private createLocalShip(): void {
-        const me = this.lobbyState.players.find(p => p.id === this.myId);
-        if (!me) return;
+  private createLocalShip(): void {
+    const me = this.lobbyState.players.find(p => p.id === this.myId);
+    if (!me) return;
 
-        const color = Phaser.Display.Color.HexStringToColor(me.color).color;
-        const s = SHIP.size;
+    const color = Phaser.Display.Color.HexStringToColor(me.color).color;
+    const s = SHIP.size;
 
-        const gfx = this.add.graphics();
+    const gfx = this.add.graphics();
 
-        // Main ship body
-        gfx.fillStyle(color, 1);
-        gfx.fillTriangle(
-            s, 0,           // tip
-            0, s * 2,       // bottom left
-            s * 2, s * 2    // bottom right
-        );
+    // Main ship body
+    gfx.fillStyle(color, 1);
+    gfx.fillTriangle(
+      s, 0,           // tip
+      0, s * 2,       // bottom left
+      s * 2, s * 2    // bottom right
+    );
 
-        // Tip highlight
-        gfx.fillStyle(0xffffff, 1);
-        gfx.fillTriangle(
-            s, 0,
-            s * 0.7, s * 0.7,
-            s * 1.3, s * 0.7
-        );
+    // Tip highlight
+    gfx.fillStyle(0xffffff, 1);
+    gfx.fillTriangle(
+      s, 0,
+      s * 0.7, s * 0.7,
+      s * 1.3, s * 0.7
+    );
 
-        // Engine flames (outer)
-        gfx.fillStyle(0xffa500, 1); // orange
-        gfx.fillTriangle(
-            s * 0.75, s * 2,
-            s * 1.25, s * 2,
-            s, s * 2.8
-        );
+    // Engine flames (outer)
+    gfx.fillStyle(0xffa500, 1); // orange
+    gfx.fillTriangle(
+      s * 0.75, s * 2,
+      s * 1.25, s * 2,
+      s, s * 2.8
+    );
 
-        // Engine flames (inner)
-        gfx.fillStyle(0xffff00, 1); // yellow
-        gfx.fillTriangle(
-            s * 0.85, s * 2,
-            s * 1.15, s * 2,
-            s, s * 2.5
-        );
+    // Engine flames (inner)
+    gfx.fillStyle(0xffff00, 1); // yellow
+    gfx.fillTriangle(
+      s * 0.85, s * 2,
+      s * 1.15, s * 2,
+      s, s * 2.5
+    );
 
-        // Generate slightly taller texture (because of flames)
-        gfx.generateTexture('local_ship', s * 2, s * 3);
-        gfx.destroy();
+    // Generate slightly taller texture (because of flames)
+    gfx.generateTexture('local_ship', s * 2, s * 3);
+    gfx.destroy();
 
-        const cx = ARENA.worldWidth / 2;
-        const cy = ARENA.worldHeight / 2;
+    const cx = ARENA.worldWidth / 2;
+    const cy = ARENA.worldHeight / 2;
 
-        this.shipSprite = this.physics.add.sprite(cx, cy, 'local_ship');
+    this.shipSprite = this.physics.add.sprite(cx, cy, 'local_ship');
 
-        // Adjust origin so rotation still feels centered
-        this.shipSprite.setOrigin(0.5, 0.4);
+    // Adjust origin so rotation still feels centered
+    this.shipSprite.setOrigin(0.5, 0.4);
 
-        const body = this.shipSprite.body as Phaser.Physics.Arcade.Body;
-        body.setMaxVelocity(PHYSICS.maxVelocity);
-        body.setCircle(s, 0, 0);
+    const body = this.shipSprite.body as Phaser.Physics.Arcade.Body;
+    body.setMaxVelocity(PHYSICS.maxVelocity);
+    body.setCircle(s, 0, 0);
 
-        this.playerColor = color;
-        this.ammoDisplay = this.add.graphics();
+    this.playerColor = color;
+    this.ammoDisplay = this.add.graphics();
 
-        this.setFollowTarget(this.shipSprite);
-        this.movementSystem = new MovementSystem(this, this.shipSprite, this.keys!);
-    }
+    this.setFollowTarget(this.shipSprite);
+    this.movementSystem = new MovementSystem(this, this.shipSprite, this.inputState);
+  }
 
   private onBulletHitPlayer = (
     bullet: Phaser.Types.Physics.Arcade.GameObjectWithBody,
@@ -287,6 +305,13 @@ export class GameScene extends Phaser.Scene {
   };
 
   update(_time: number, delta: number): void {
+    if (this.keys) {
+      this.inputState.left   = this.keys.A.isDown     || this.touchInput.left;
+      this.inputState.right  = this.keys.D.isDown     || this.touchInput.right;
+      this.inputState.thrust = this.keys.W.isDown     || this.touchInput.thrust;
+      this.inputState.shoot  = this.keys.SPACE.isDown || this.touchInput.shoot;
+    }
+
     if (!this.isDead) {
       this.movementSystem?.update(delta);
       this.bulletSystem?.update(delta);
@@ -402,6 +427,9 @@ export class GameScene extends Phaser.Scene {
     this.remoteBulletSystem?.destroy();
     this.remoteBulletSystem = null;
     this.bulletSystem = null;
+    this.touchControls?.destroy();
+    this.touchControls = null;
+    this.touchInput = { left: false, right: false, thrust: false, shoot: false };
     this.isDead = false;
 
     this.cameras.main.stopFollow();
