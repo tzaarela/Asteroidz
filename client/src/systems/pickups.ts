@@ -6,32 +6,31 @@ import { emit } from '../net/socket';
 const PICKUP_SIZE = 10;
 const PICKUP_TEXTURE = 'pickup_ammo';
 
+interface PickupEntry {
+  sprite: Phaser.Physics.Matter.Sprite;
+  type: PickupType;
+}
+
 export class PickupSystem {
   private scene: Phaser.Scene;
-  private pickupGroup: Phaser.Physics.Arcade.Group;
-  private pickups = new Map<string, Phaser.Physics.Arcade.Sprite>();
+  private pickups = new Map<string, PickupEntry>();
+  /** Reverse lookup: Matter body id → pickup id. Used by the collision router. */
+  private bodyIdToPickup = new Map<number, string>();
   private spawnTimer: Phaser.Time.TimerEvent | null = null;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
 
     // Diamond shape: rotate a square 45° — visually distinct from white bullet circles
-    const gfx = scene.add.graphics();
-    const s = PICKUP_SIZE;
-    gfx.fillStyle(0x00ffff, 1);
-    gfx.fillTriangle(s, 0, s * 2, s, s, s * 2);
-    gfx.fillTriangle(s, 0, 0, s, s, s * 2);
-    gfx.generateTexture(PICKUP_TEXTURE, s * 2, s * 2);
-    gfx.destroy();
-
-    this.pickupGroup = scene.physics.add.group({
-      maxSize: 20,
-      runChildUpdate: false,
-    });
-  }
-
-  getPickupGroup(): Phaser.Physics.Arcade.Group {
-    return this.pickupGroup;
+    if (!scene.textures.exists(PICKUP_TEXTURE)) {
+      const gfx = scene.add.graphics();
+      const s = PICKUP_SIZE;
+      gfx.fillStyle(0x00ffff, 1);
+      gfx.fillTriangle(s, 0, s * 2, s, s, s * 2);
+      gfx.fillTriangle(s, 0, 0, s, s, s * 2);
+      gfx.generateTexture(PICKUP_TEXTURE, s * 2, s * 2);
+      gfx.destroy();
+    }
   }
 
   startSpawning(): void {
@@ -41,6 +40,15 @@ export class PickupSystem {
       callback: this.spawnAmmoPickup,
       callbackScope: this,
     });
+  }
+
+  /** Look up a pickup id by its Matter body id. */
+  getPickupIdForBody(bodyId: number): string | undefined {
+    return this.bodyIdToPickup.get(bodyId);
+  }
+
+  getPickupType(id: string): PickupType | undefined {
+    return this.pickups.get(id)?.type;
   }
 
   private spawnAmmoPickup(): void {
@@ -60,33 +68,37 @@ export class PickupSystem {
   spawnPickup(id: string, type: PickupType, x: number, y: number): void {
     if (this.pickups.has(id)) return;
 
-    const sprite = this.pickupGroup.get(x, y, PICKUP_TEXTURE) as Phaser.Physics.Arcade.Sprite | null;
-    if (!sprite) return;
-
-    sprite.setActive(true).setVisible(true);
+    const sprite = this.scene.matter.add.sprite(x, y, PICKUP_TEXTURE, undefined, {
+      shape: { type: 'circle', radius: PICKUP_SIZE },
+      isStatic: true,
+      isSensor: true,
+      label: 'pickup',
+    });
     sprite.setData('pickupId', id);
     sprite.setData('type', type);
 
-    const body = sprite.body as Phaser.Physics.Arcade.Body;
-    body.setEnable(true);
-    body.setCircle(PICKUP_SIZE);
-
-    this.pickups.set(id, sprite);
+    const body = sprite.body as MatterJS.BodyType;
+    this.pickups.set(id, { sprite, type });
+    this.bodyIdToPickup.set(body.id, id);
   }
 
   removePickup(id: string): void {
-    const sprite = this.pickups.get(id);
-    if (!sprite) return;
+    const entry = this.pickups.get(id);
+    if (!entry) return;
 
-    this.pickupGroup.killAndHide(sprite);
-    (sprite.body as Phaser.Physics.Arcade.Body).setEnable(false);
+    const body = entry.sprite.body as MatterJS.BodyType;
+    this.bodyIdToPickup.delete(body.id);
+    entry.sprite.destroy();
     this.pickups.delete(id);
   }
 
   destroy(): void {
     this.spawnTimer?.destroy();
     this.spawnTimer = null;
-    this.pickupGroup.clear(true, true);
+    for (const entry of this.pickups.values()) {
+      entry.sprite.destroy();
+    }
     this.pickups.clear();
+    this.bodyIdToPickup.clear();
   }
 }

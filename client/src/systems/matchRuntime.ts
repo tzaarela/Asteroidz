@@ -1,12 +1,15 @@
 import Phaser from 'phaser';
-import type { LobbyState } from '@asteroidz/shared';
-import { PHYSICS, SHIP, AMMO } from '@asteroidz/shared';
+import type { LobbyState, PickupType } from '@asteroidz/shared';
+import { SHIP, AMMO } from '@asteroidz/shared';
+import { emit } from '../net/socket';
 import { MovementSystem } from './movement';
 import type { InputState } from './movement';
 import { RemotePlayerSystem } from './remotePlayerSystem';
 import { BulletSystem } from './bulletSystem';
 import { RemoteBulletSystem } from './remoteBulletSystem';
 import { PickupSystem } from './pickups';
+import { ArenaSystem } from './arena';
+import { MatterCollisionRouter } from './matterCollisionRouter';
 import { TouchControls } from '../ui/touchControls';
 import { ensureShipTexture } from '../utils/shipTexture';
 import { Player } from '../objects/Player';
@@ -20,13 +23,11 @@ export interface MatchRuntimeConfig {
   isTouchDevice: boolean;
   spawnX: number;
   spawnY: number;
-  onBulletHit: Phaser.Types.Physics.Arcade.ArcadePhysicsCallback;
-  onPickup: Phaser.Types.Physics.Arcade.ArcadePhysicsCallback;
 }
 
 /**
  * Owns every gameplay object that only exists for the duration of a match:
- * the local ship, the five gameplay systems, physics overlap colliders,
+ * the local ship, the gameplay systems, Matter collision routing, the arena,
  * touch overlay, and the local ammo display. Constructed when the match
  * transitions into Warmup/Active, destroyed on match reset.
  */
@@ -37,21 +38,21 @@ export class MatchRuntime {
   readonly bullets: BulletSystem;
   readonly remoteBullets: RemoteBulletSystem;
   readonly pickups: PickupSystem;
+  readonly arena: ArenaSystem;
   readonly touch: TouchControls | null;
 
   private readonly scene: Phaser.Scene;
-  private readonly bulletHitCollider: Phaser.Physics.Arcade.Collider;
-  private readonly pickupCollider: Phaser.Physics.Arcade.Collider;
+  private readonly collisions: MatterCollisionRouter;
   private readonly ammoDisplay: Phaser.GameObjects.Graphics;
   private readonly playerColor: number;
 
   /** Convenience accessor — external callers (GameScene camera, state sender) read the sprite directly. */
-  get shipSprite(): Phaser.Physics.Arcade.Sprite {
+  get shipSprite(): Phaser.Physics.Matter.Sprite {
     return this.player.sprite;
   }
 
   constructor(config: MatchRuntimeConfig) {
-    const { scene, lobbyState, myId, inputState, touchInput, isTouchDevice, spawnX, spawnY, onBulletHit, onPickup } = config;
+    const { scene, lobbyState, myId, inputState, touchInput, isTouchDevice, spawnX, spawnY } = config;
     this.scene = scene;
 
     const me = lobbyState.players.find(p => p.id === myId);
@@ -59,17 +60,24 @@ export class MatchRuntime {
       throw new Error(`MatchRuntime: local player ${myId} not found in lobby state`);
     }
 
-    // Local ship sprite — wrapped in a Player for gameplay systems to consume.
+    // Local ship sprite — dynamic Matter body with air friction matching the
+    // old Arcade drag feel, and restitution for ship-to-ship bounce.
     const textureKey = ensureShipTexture(scene, me.color);
-    const shipSprite = scene.physics.add.sprite(spawnX, spawnY, textureKey);
+    const shipSprite = scene.matter.add.sprite(spawnX, spawnY, textureKey, undefined, {
+      shape: { type: 'circle', radius: SHIP.size },
+      frictionAir: 0.02,
+      friction: 0,
+      restitution: 0.4,
+      label: 'ship-local',
+    });
     shipSprite.setOrigin(0.5, 0.4); // keeps rotation visually centered on the body
-    const body = shipSprite.body as Phaser.Physics.Arcade.Body;
-    body.setMaxVelocity(PHYSICS.maxVelocity);
-    body.setCircle(SHIP.size, 0, 0);
     this.player = new Player(myId, me.color, shipSprite, true);
 
     this.playerColor = Phaser.Display.Color.HexStringToColor(me.color).color;
     this.ammoDisplay = scene.add.graphics();
+
+    // Arena walls — polygon Matter bodies. Previously dead code; now wired.
+    this.arena = new ArenaSystem(scene);
 
     // Gameplay systems
     this.movement = new MovementSystem(scene, shipSprite, inputState);
@@ -78,23 +86,43 @@ export class MatchRuntime {
     this.bullets = new BulletSystem(scene, shipSprite, inputState);
     this.touch = isTouchDevice ? new TouchControls(scene, touchInput) : null;
 
-    // Physics overlaps
-    this.bulletHitCollider = scene.physics.add.overlap(
-      this.bullets.getBulletGroup(),
-      this.remotePlayers.getShipGroup(),
-      onBulletHit,
-    ) as Phaser.Physics.Arcade.Collider;
-
     this.pickups = new PickupSystem(scene);
-    this.pickupCollider = scene.physics.add.overlap(
-      this.shipSprite,
-      this.pickups.getPickupGroup(),
-      onPickup,
-    ) as Phaser.Physics.Arcade.Collider;
-
     if (myId === lobbyState.leaderId) {
       this.pickups.startSpawning();
     }
+
+    // Matter collision routing — replaces Arcade overlap callbacks.
+    this.collisions = new MatterCollisionRouter(scene);
+
+    // Local bullet hitting a remote ship → report kill.
+    this.collisions.on('bullet-local', 'ship-remote', (bulletBody, shipBody) => {
+      const bulletSprite = (bulletBody as unknown as { gameObject?: Phaser.Physics.Matter.Sprite }).gameObject;
+      if (bulletSprite && this.bullets.owns(bulletSprite)) {
+        this.bullets.destroyBullet(bulletSprite);
+      }
+      const targetId = this.remotePlayers.getPlayerIdForBody(shipBody.id);
+      if (targetId) emit('player:hit', { targetId });
+    });
+
+    // Local ship touching a pickup → collect.
+    this.collisions.on('ship-local', 'pickup', (_shipBody, pickupBody) => {
+      const pickupId = this.pickups.getPickupIdForBody(pickupBody.id);
+      if (!pickupId) return;
+      const type = this.pickups.getPickupType(pickupId) as PickupType;
+      this.pickups.removePickup(pickupId);
+      this.bullets.addAmmo(AMMO.ammoPerPickup);
+      emit('pickup:collected', { pickupId, type });
+    });
+
+    // Bullet hitting a wall chunk → despawn the bullet. Wall destruction
+    // itself is a future feature; for parity with the old (unwired) Arcade
+    // build we just absorb the bullet without destroying the wall.
+    this.collisions.on('bullet-local', 'wall-', (bulletBody) => {
+      const bulletSprite = (bulletBody as unknown as { gameObject?: Phaser.Physics.Matter.Sprite }).gameObject;
+      if (bulletSprite && this.bullets.owns(bulletSprite)) {
+        this.bullets.destroyBullet(bulletSprite);
+      }
+    });
   }
 
   /** Pumps gameplay systems and draws the ammo HUD. Called from GameScene.update. */
@@ -112,29 +140,32 @@ export class MatchRuntime {
   hideShip(): void {
     const sprite = this.player.sprite;
     sprite.setActive(false).setVisible(false);
-    (sprite.body as Phaser.Physics.Arcade.Body).setEnable(false);
+    // Remove the body from the world while dead so nothing collides with it.
+    this.scene.matter.world.remove(sprite.body as MatterJS.BodyType);
     this.ammoDisplay.setVisible(false);
   }
 
   /** Reposition and re-enable the ship after the respawn delay. */
   respawnAt(x: number, y: number): void {
     const sprite = this.player.sprite;
+    const body = sprite.body as MatterJS.BodyType;
+    this.scene.matter.world.add(body);
     sprite.setPosition(x, y);
     sprite.setRotation(0);
-    const body = sprite.body as Phaser.Physics.Arcade.Body;
-    body.setVelocity(0, 0);
-    body.setEnable(true);
+    this.scene.matter.body.setVelocity(body, { x: 0, y: 0 });
+    this.scene.matter.body.setAngularVelocity(body, 0);
     sprite.setActive(true).setVisible(true);
     this.ammoDisplay.setVisible(true);
     this.bullets.resetAmmo();
   }
 
   destroy(): void {
-    this.bulletHitCollider.destroy();
-    this.pickupCollider.destroy();
+    this.collisions.destroy();
     this.pickups.destroy();
+    this.arena.destroy();
     this.player.destroy();
     this.ammoDisplay.destroy();
+    this.bullets.destroy();
     this.remotePlayers.destroy();
     this.remoteBullets.destroy();
     this.touch?.destroy();

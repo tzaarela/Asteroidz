@@ -176,7 +176,7 @@
 
 ### Phaser Specific
 - Use Phaser scenes for state management (MenuScene, GameScene, VictoryScene)
-- Use Phaser's built-in physics (Arcade) for movement and collision
+- Use Phaser's built-in Matter physics for movement, collision, and polygon arena walls
 - Keep rendering logic in Phaser — no raw canvas manipulation
 - Separate game logic from rendering where practical
 
@@ -203,3 +203,4 @@
 ## 10. Change Log
 
 - 2026-04-01: Full rewrite — web-based architecture with TypeScript, Phaser 3, Socket.IO, Node.js. Relay networking model. All systems defined from design interview.
+- 2026-04-09: Switched client physics from Arcade to Matter (bundled with Phaser). Enables true polygon arena chunk bodies, native ship-to-ship elastic bounce, and removes the AABB approximation hack in arena.ts. Collision dispatch moved from per-pair overlap() to a single `collisionstart` event routed by body labels (see `client/src/systems/matterCollisionRouter.ts`).

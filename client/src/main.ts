@@ -8,9 +8,11 @@ const config: Phaser.Types.Core.GameConfig = {
   parent: 'game',
   backgroundColor: '#0a0a0a',
   physics: {
-    default: 'arcade',
-    arcade: {
+    default: 'matter',
+    matter: {
       gravity: { x: 0, y: 0 },
+      debug: false, // flip to true during dev to visualize Matter bodies
+      enableSleeping: false,
     },
   },
   scale: {

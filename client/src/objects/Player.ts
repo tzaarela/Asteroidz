@@ -10,13 +10,13 @@ import type Phaser from 'phaser';
 export class Player {
   readonly id: string;
   readonly color: string;
-  readonly sprite: Phaser.Physics.Arcade.Sprite;
+  readonly sprite: Phaser.Physics.Matter.Sprite;
   readonly isLocal: boolean;
 
   constructor(
     id: string,
     color: string,
-    sprite: Phaser.Physics.Arcade.Sprite,
+    sprite: Phaser.Physics.Matter.Sprite,
     isLocal: boolean,
   ) {
     this.id = id;
