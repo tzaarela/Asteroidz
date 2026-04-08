@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import type { LobbyState, PlayerTransform, ScoreEntry, PickupType } from '@asteroidz/shared';
 import { MatchPhase, ARENA, NETWORK, RESPAWN, AMMO } from '@asteroidz/shared';
-import { on, off, emit, getSocketId } from '../network/socket';
+import { on, off, emit, getSocketId } from '../net/socket';
 import { LobbyPanel } from '../ui/LobbyPanel';
 import { PlayerListPanel } from '../ui/PlayerListPanel';
 import type { InputState } from '../systems/movement';

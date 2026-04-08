@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { BULLET, AMMO } from '@asteroidz/shared';
-import { emit } from '../network/socket';
+import { emit } from '../net/socket';
+import { Bullet } from '../objects/Bullet';
 import type { InputState } from './movement';
 
 export class BulletSystem {
@@ -51,13 +52,15 @@ export class BulletSystem {
 
     // Despawn bullets that have exceeded max travel distance
     for (const obj of this.bulletGroup.getChildren()) {
-      const bullet = obj as Phaser.Physics.Arcade.Sprite;
-      if (!bullet.active) continue;
+      const sprite = obj as Phaser.Physics.Arcade.Sprite;
+      if (!sprite.active) continue;
 
-      const dx = bullet.x - (bullet.getData('spawnX') as number);
-      const dy = bullet.y - (bullet.getData('spawnY') as number);
+      const bullet = Bullet.from(sprite);
+      if (!bullet) continue;
+      const dx = sprite.x - bullet.spawnX;
+      const dy = sprite.y - bullet.spawnY;
       if (dx * dx + dy * dy >= BULLET.maxDistance * BULLET.maxDistance) {
-        this.destroyBullet(bullet);
+        this.destroyBullet(sprite);
       }
     }
   }
@@ -85,20 +88,19 @@ export class BulletSystem {
     // Subtract 90° to match the local velocity direction (ship texture points north, Phaser angle=0 is east)
     const rotation = Phaser.Math.DegToRad(this.ship.angle - 90);
 
-    const bullet = this.bulletGroup.get(x, y, 'bullet') as Phaser.Physics.Arcade.Sprite | null;
-    if (!bullet) return; // pool exhausted
+    const sprite = this.bulletGroup.get(x, y, 'bullet') as Phaser.Physics.Arcade.Sprite | null;
+    if (!sprite) return; // pool exhausted
 
-    bullet.setActive(true).setVisible(true);
+    sprite.setActive(true).setVisible(true);
 
-    const body = bullet.body as Phaser.Physics.Arcade.Body;
+    const body = sprite.body as Phaser.Physics.Arcade.Body;
     body.setEnable(true);
     body.setCircle(BULLET.size);
     // Ship texture points north; angle=0 is east in Phaser — subtract 90° to align
     const vel = this.scene.physics.velocityFromAngle(this.ship.angle - 90, BULLET.speed);
     body.velocity.set(vel.x, vel.y);
 
-    bullet.setData('spawnX', x);
-    bullet.setData('spawnY', y);
+    new Bullet(sprite, x, y);
 
     this.ammo -= 1;
     this.lastFireTime = now;

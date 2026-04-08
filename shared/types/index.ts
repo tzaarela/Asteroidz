@@ -4,4 +4,4 @@
  */
 export * from './game.js';
 export * from './events.js';
-export * from '../constants.js';
+export * from '../constants/index.js';
