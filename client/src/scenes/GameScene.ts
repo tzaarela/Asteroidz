@@ -191,35 +191,69 @@ export class GameScene extends Phaser.Scene {
     }
   };
 
-  private createLocalShip(): void {
-    const me = this.lobbyState.players.find(p => p.id === this.myId);
-    if (!me) return;
+    private createLocalShip(): void {
+        const me = this.lobbyState.players.find(p => p.id === this.myId);
+        if (!me) return;
 
-    const color = Phaser.Display.Color.HexStringToColor(me.color).color;
-    const s = SHIP.size;
+        const color = Phaser.Display.Color.HexStringToColor(me.color).color;
+        const s = SHIP.size;
 
-    // Draw triangle pointing up — tip at top-center, base at bottom
-    const gfx = this.add.graphics();
-    gfx.fillStyle(color, 1);
-    gfx.fillTriangle(s, 0, 0, s * 2, s * 2, s * 2);
-    gfx.generateTexture('local_ship', s * 2, s * 2);
-    gfx.destroy();
+        const gfx = this.add.graphics();
 
-    const cx = ARENA.worldWidth / 2;
-    const cy = ARENA.worldHeight / 2;
-    this.shipSprite = this.physics.add.sprite(cx, cy, 'local_ship');
+        // Main ship body
+        gfx.fillStyle(color, 1);
+        gfx.fillTriangle(
+            s, 0,           // tip
+            0, s * 2,       // bottom left
+            s * 2, s * 2    // bottom right
+        );
 
-    const body = this.shipSprite.body as Phaser.Physics.Arcade.Body;
-    body.setMaxVelocity(PHYSICS.maxVelocity);
-    // Circular body sized to roughly match the triangle
-    body.setCircle(s, 0, 0);
+        // Tip highlight
+        gfx.fillStyle(0xffffff, 1);
+        gfx.fillTriangle(
+            s, 0,
+            s * 0.7, s * 0.7,
+            s * 1.3, s * 0.7
+        );
 
-    this.playerColor = color;
-    this.ammoDisplay = this.add.graphics();
+        // Engine flames (outer)
+        gfx.fillStyle(0xffa500, 1); // orange
+        gfx.fillTriangle(
+            s * 0.75, s * 2,
+            s * 1.25, s * 2,
+            s, s * 2.8
+        );
 
-    this.setFollowTarget(this.shipSprite);
-    this.movementSystem = new MovementSystem(this, this.shipSprite, this.keys!);
-  }
+        // Engine flames (inner)
+        gfx.fillStyle(0xffff00, 1); // yellow
+        gfx.fillTriangle(
+            s * 0.85, s * 2,
+            s * 1.15, s * 2,
+            s, s * 2.5
+        );
+
+        // Generate slightly taller texture (because of flames)
+        gfx.generateTexture('local_ship', s * 2, s * 3);
+        gfx.destroy();
+
+        const cx = ARENA.worldWidth / 2;
+        const cy = ARENA.worldHeight / 2;
+
+        this.shipSprite = this.physics.add.sprite(cx, cy, 'local_ship');
+
+        // Adjust origin so rotation still feels centered
+        this.shipSprite.setOrigin(0.5, 0.4);
+
+        const body = this.shipSprite.body as Phaser.Physics.Arcade.Body;
+        body.setMaxVelocity(PHYSICS.maxVelocity);
+        body.setCircle(s, 0, 0);
+
+        this.playerColor = color;
+        this.ammoDisplay = this.add.graphics();
+
+        this.setFollowTarget(this.shipSprite);
+        this.movementSystem = new MovementSystem(this, this.shipSprite, this.keys!);
+    }
 
   private onBulletHitPlayer = (
     bullet: Phaser.Types.Physics.Arcade.GameObjectWithBody,
