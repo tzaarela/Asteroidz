@@ -1,21 +1,22 @@
 import Phaser from 'phaser';
 import { PHYSICS } from '@asteroidz/shared';
 
-type MovementKeys = {
-  W: Phaser.Input.Keyboard.Key;
-  A: Phaser.Input.Keyboard.Key;
-  D: Phaser.Input.Keyboard.Key;
-};
+export interface InputState {
+  left: boolean;
+  right: boolean;
+  thrust: boolean;
+  shoot: boolean;
+}
 
 export class MovementSystem {
   private scene: Phaser.Scene;
   private ship: Phaser.Physics.Arcade.Sprite;
-  private keys: MovementKeys;
+  private input: InputState;
 
-  constructor(scene: Phaser.Scene, ship: Phaser.Physics.Arcade.Sprite, keys: MovementKeys) {
+  constructor(scene: Phaser.Scene, ship: Phaser.Physics.Arcade.Sprite, input: InputState) {
     this.scene = scene;
     this.ship = ship;
-    this.keys = keys;
+    this.input = input;
   }
 
   update(delta: number): void {
@@ -23,16 +24,16 @@ export class MovementSystem {
     const dt = delta / 1000; // ms → seconds
 
     // Rotation — instant, no angular momentum
-    if (this.keys.A.isDown) {
+    if (this.input.left) {
       this.ship.angle -= PHYSICS.rotationSpeed * dt;
     }
-    if (this.keys.D.isDown) {
+    if (this.input.right) {
       this.ship.angle += PHYSICS.rotationSpeed * dt;
     }
 
     // Thrust — sprite texture points north; Phaser angle=0 points east (+x)
     // Subtract 90° so thrust direction matches the visual facing direction
-    if (this.keys.W.isDown) {
+    if (this.input.thrust) {
       const thrustDeg = this.ship.angle - 90;
       const thrust = this.scene.physics.velocityFromAngle(thrustDeg, PHYSICS.thrustForce * dt);
       body.velocity.x += thrust.x;

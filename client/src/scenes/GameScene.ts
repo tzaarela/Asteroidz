@@ -5,6 +5,8 @@ import { on, off, emit, getSocketId } from '../network/socket';
 import { LobbyPanel } from '../ui/LobbyPanel';
 import { PlayerListPanel } from '../ui/PlayerListPanel';
 import { MovementSystem } from '../systems/movement';
+import type { InputState } from '../systems/movement';
+import { TouchControls } from '../ui/touchControls';
 import { RemotePlayerSystem } from '../systems/remotePlayerSystem';
 import { BulletSystem } from '../systems/bulletSystem';
 import { RemoteBulletSystem } from '../systems/remoteBulletSystem';
@@ -30,6 +32,10 @@ export class GameScene extends Phaser.Scene {
   private pickupSystem: PickupSystem | null = null;
   private pickupCollider: Phaser.Physics.Arcade.Collider | null = null;
   private keys: { W: Phaser.Input.Keyboard.Key; A: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key; SPACE: Phaser.Input.Keyboard.Key } | null = null;
+  private inputState: InputState = { left: false, right: false, thrust: false, shoot: false };
+  private touchInput: InputState = { left: false, right: false, thrust: false, shoot: false };
+  private touchControls: TouchControls | null = null;
+  private isTouchDevice = false;
   private matchActive = false;
   private tickAccumulator = 0;
   private isDead = false;
@@ -50,6 +56,9 @@ export class GameScene extends Phaser.Scene {
     this.remoteBulletSystem = null;
     this.pickupSystem = null;
     this.pickupCollider = null;
+    this.touchControls = null;
+    this.inputState = { left: false, right: false, thrust: false, shoot: false };
+    this.touchInput = { left: false, right: false, thrust: false, shoot: false };
     this.matchActive = false;
     this.tickAccumulator = 0;
     this.isDead = false;
@@ -65,6 +74,11 @@ export class GameScene extends Phaser.Scene {
       D: Phaser.Input.Keyboard.Key;
       SPACE: Phaser.Input.Keyboard.Key;
     };
+
+    this.isTouchDevice =
+      'ontouchstart' in window ||
+      navigator.maxTouchPoints > 0 ||
+      this.sys.game.device.input.touch;
 
     this.add.rectangle(
       ARENA.worldWidth / 2,
@@ -118,6 +132,7 @@ export class GameScene extends Phaser.Scene {
       this.remotePlayerSystem?.destroy();
       this.remoteBulletSystem?.destroy();
       this.pickupSystem?.destroy();
+      this.touchControls?.destroy();
       this.bulletSystem = null;
     });
   }
@@ -172,7 +187,10 @@ export class GameScene extends Phaser.Scene {
     this.createLocalShip();
     this.remotePlayerSystem = new RemotePlayerSystem(this, this.myId, this.lobbyState);
     this.remoteBulletSystem = new RemoteBulletSystem(this, () => this.lobbyState.players);
-    this.bulletSystem = new BulletSystem(this, this.shipSprite!, this.keys!.SPACE);
+    this.bulletSystem = new BulletSystem(this, this.shipSprite!, this.inputState);
+    if (this.isTouchDevice) {
+      this.touchControls = new TouchControls(this, this.touchInput);
+    }
     this.bulletHitCollider = this.physics.add.overlap(
       this.bulletSystem.getBulletGroup(),
       this.remotePlayerSystem.getShipGroup(),
@@ -218,7 +236,7 @@ export class GameScene extends Phaser.Scene {
     this.ammoDisplay = this.add.graphics();
 
     this.setFollowTarget(this.shipSprite);
-    this.movementSystem = new MovementSystem(this, this.shipSprite, this.keys!);
+    this.movementSystem = new MovementSystem(this, this.shipSprite, this.inputState);
   }
 
   private onBulletHitPlayer = (
@@ -253,6 +271,13 @@ export class GameScene extends Phaser.Scene {
   };
 
   update(_time: number, delta: number): void {
+    if (this.keys) {
+      this.inputState.left   = this.keys.A.isDown     || this.touchInput.left;
+      this.inputState.right  = this.keys.D.isDown     || this.touchInput.right;
+      this.inputState.thrust = this.keys.W.isDown     || this.touchInput.thrust;
+      this.inputState.shoot  = this.keys.SPACE.isDown || this.touchInput.shoot;
+    }
+
     if (!this.isDead) {
       this.movementSystem?.update(delta);
       this.bulletSystem?.update(delta);
@@ -368,6 +393,9 @@ export class GameScene extends Phaser.Scene {
     this.remoteBulletSystem?.destroy();
     this.remoteBulletSystem = null;
     this.bulletSystem = null;
+    this.touchControls?.destroy();
+    this.touchControls = null;
+    this.touchInput = { left: false, right: false, thrust: false, shoot: false };
     this.isDead = false;
 
     this.cameras.main.stopFollow();
