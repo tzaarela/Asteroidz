@@ -7,7 +7,6 @@ import { MovementSystem } from '../systems/movement';
 import { RemotePlayerSystem } from '../systems/remotePlayerSystem';
 import { BulletSystem } from '../systems/bulletSystem';
 import { RemoteBulletSystem } from '../systems/remoteBulletSystem';
-import { ArenaSystem } from '../systems/arena';
 
 const STAR_COUNT = 300;
 const STAR_SEED = 42;
@@ -24,10 +23,7 @@ export class GameScene extends Phaser.Scene {
   private bulletSystem: BulletSystem | null = null;
   private remoteBulletSystem: RemoteBulletSystem | null = null;
   private bulletHitCollider: Phaser.Physics.Arcade.Collider | null = null;
-  private arenaSystem: ArenaSystem | null = null;
-  private bulletWallCollider: Phaser.Physics.Arcade.Collider | null = null;
   private keys: { W: Phaser.Input.Keyboard.Key; A: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key; SPACE: Phaser.Input.Keyboard.Key } | null = null;
-  private killCountText: Phaser.GameObjects.Text | null = null;
   private matchActive = false;
   private tickAccumulator = 0;
   private isDead = false;
@@ -47,8 +43,6 @@ export class GameScene extends Phaser.Scene {
     this.matchActive = false;
     this.tickAccumulator = 0;
     this.isDead = false;
-    this.arenaSystem = null;
-    this.bulletWallCollider = null;
   }
 
   create(): void {
@@ -70,8 +64,6 @@ export class GameScene extends Phaser.Scene {
       0x030712
     );
 
-    this.arenaSystem = new ArenaSystem(this);
-
     this.createStarField();
 
     this.titleText = this.add
@@ -92,19 +84,18 @@ export class GameScene extends Phaser.Scene {
       () => this.onStartMatch(),
     );
 
-    on('lobby:state',  this.handleLobbyState);
-    on('match:state',  this.handleMatchState);
-    on('match:reset',  this.handleMatchReset);
-    on('match:score',  this.handleMatchScore);
-    on('player:died',  this.handlePlayerDied);
+    on('lobby:state',   this.handleLobbyState);
+    on('match:state',   this.handleMatchState);
+    on('match:reset',   this.handleMatchReset);
+    on('match:winner',  this.handleMatchWinner);
+    on('player:died',   this.handlePlayerDied);
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      off('lobby:state',  this.handleLobbyState);
-      off('match:state',  this.handleMatchState);
-      off('match:reset',  this.handleMatchReset);
-      off('match:score',  this.handleMatchScore);
-      off('player:died',  this.handlePlayerDied);
-      off('arena:destroy', this.handleArenaDestroy);
+      off('lobby:state',   this.handleLobbyState);
+      off('match:state',   this.handleMatchState);
+      off('match:reset',   this.handleMatchReset);
+      off('match:winner',  this.handleMatchWinner);
+      off('player:died',   this.handlePlayerDied);
       this.remotePlayerSystem?.destroy();
       this.remoteBulletSystem?.destroy();
       this.bulletSystem = null;
@@ -152,15 +143,6 @@ export class GameScene extends Phaser.Scene {
     this.titleText.destroy();
     this.lobbyPanel.destroy();
 
-    const me = this.lobbyState.players.find(p => p.id === this.myId);
-    this.killCountText = this.add
-      .text(20, 20, '0', {
-        fontSize: '32px',
-        color: me?.color ?? '#ffffff',
-        fontFamily: 'monospace',
-      })
-      .setScrollFactor(0);
-
     this.createLocalShip();
     this.remotePlayerSystem = new RemotePlayerSystem(this, this.myId, this.lobbyState);
     this.remoteBulletSystem = new RemoteBulletSystem(this, () => this.lobbyState.players);
@@ -170,16 +152,6 @@ export class GameScene extends Phaser.Scene {
       this.remotePlayerSystem.getShipGroup(),
       this.onBulletHitPlayer as Phaser.Types.Physics.Arcade.ArcadePhysicsCallback,
     ) as Phaser.Physics.Arcade.Collider;
-
-    this.physics.add.collider(this.shipSprite!, this.arenaSystem!.getStaticGroup());
-
-    this.bulletWallCollider = this.physics.add.overlap(
-      this.bulletSystem.getBulletGroup(),
-      this.arenaSystem!.getStaticGroup(),
-      this.onBulletHitWall as Phaser.Types.Physics.Arcade.ArcadePhysicsCallback,
-    ) as Phaser.Physics.Arcade.Collider;
-
-    on('arena:destroy', this.handleArenaDestroy);
   };
 
   private createLocalShip(): void {
@@ -209,13 +181,6 @@ export class GameScene extends Phaser.Scene {
     this.movementSystem = new MovementSystem(this, this.shipSprite, this.keys!);
   }
 
-  private handleMatchScore = (payload: { scores: ScoreEntry[] }): void => {
-    const entry = payload.scores.find(s => s.playerId === this.myId);
-    if (entry) {
-      this.killCountText?.setText(String(entry.kills));
-    }
-  };
-
   private onBulletHitPlayer = (
     bullet: Phaser.Types.Physics.Arcade.GameObjectWithBody,
     remoteShip: Phaser.Types.Physics.Arcade.GameObjectWithBody,
@@ -225,21 +190,6 @@ export class GameScene extends Phaser.Scene {
       remoteShip as Phaser.Physics.Arcade.Sprite,
     );
     if (targetId) emit('player:hit', { targetId });
-  };
-
-  private onBulletHitWall = (
-    bullet: Phaser.Types.Physics.Arcade.GameObjectWithBody,
-    wallSprite: Phaser.Types.Physics.Arcade.GameObjectWithBody,
-  ): void => {
-    const chunkId = (wallSprite as Phaser.GameObjects.GameObject).getData('chunkId') as string | undefined;
-    if (!chunkId) return;
-    this.bulletSystem!.destroyBullet(bullet as Phaser.Physics.Arcade.Sprite);
-    this.arenaSystem!.destroyChunk(chunkId);
-    emit('arena:destroy', { chunkId });
-  };
-
-  private handleArenaDestroy = (payload: { chunkId: string; destroyerId: string }): void => {
-    this.arenaSystem?.destroyChunk(payload.chunkId);
   };
 
   update(_time: number, delta: number): void {
@@ -304,13 +254,18 @@ export class GameScene extends Phaser.Scene {
     emit('player:respawn', { x, y });
   }
 
+  private handleMatchWinner = (payload: { winnerId: string; scores: ScoreEntry[] }): void => {
+    this.scene.launch('VictoryScene', {
+      winnerId: payload.winnerId,
+      scores: payload.scores,
+      players: this.lobbyState.players,
+    });
+  };
+
   private handleMatchReset = (): void => {
+    this.scene.stop('VictoryScene');
     this.bulletHitCollider?.destroy();
     this.bulletHitCollider = null;
-    this.bulletWallCollider?.destroy();
-    this.bulletWallCollider = null;
-    off('arena:destroy', this.handleArenaDestroy);
-    this.arenaSystem?.reset();
     this.shipSprite?.destroy();
     this.shipSprite = null;
     this.movementSystem = null;
@@ -319,8 +274,6 @@ export class GameScene extends Phaser.Scene {
     this.remoteBulletSystem?.destroy();
     this.remoteBulletSystem = null;
     this.bulletSystem = null;
-    this.killCountText?.destroy();
-    this.killCountText = null;
     this.isDead = false;
 
     this.cameras.main.stopFollow();
