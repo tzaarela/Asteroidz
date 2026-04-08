@@ -27,6 +27,8 @@ export class GameScene extends Phaser.Scene {
   private matchActive = false;
   private tickAccumulator = 0;
   private isDead = false;
+  private ammoDisplay: Phaser.GameObjects.Graphics | null = null;
+  private playerColor: number = 0xffffff;
 
   constructor() {
     super('GameScene');
@@ -177,6 +179,9 @@ export class GameScene extends Phaser.Scene {
     // Circular body sized to roughly match the triangle
     body.setCircle(s, 0, 0);
 
+    this.playerColor = color;
+    this.ammoDisplay = this.add.graphics();
+
     this.setFollowTarget(this.shipSprite);
     this.movementSystem = new MovementSystem(this, this.shipSprite, this.keys!);
   }
@@ -196,6 +201,9 @@ export class GameScene extends Phaser.Scene {
     if (!this.isDead) {
       this.movementSystem?.update(delta);
       this.bulletSystem?.update(delta);
+    }
+    if (this.ammoDisplay && this.shipSprite && this.bulletSystem) {
+      this.updateAmmoDisplay();
     }
     this.remotePlayerSystem?.update();
     this.remoteBulletSystem?.update();
@@ -222,12 +230,36 @@ export class GameScene extends Phaser.Scene {
     emit('player:update', payload);
   }
 
+  private updateAmmoDisplay(): void {
+    const gfx = this.ammoDisplay!;
+    const ship = this.shipSprite!;
+    const ammo = this.bulletSystem!.ammoCount();
+    const dotRadius = 3;
+    const dotSpacing = 10;
+    const totalWidth = (AMMO.maxAmmo - 1) * dotSpacing;
+
+    gfx.clear();
+    gfx.setPosition(ship.x - totalWidth / 2, ship.y + SHIP.size + 6);
+
+    for (let i = 0; i < AMMO.maxAmmo; i++) {
+      const x = i * dotSpacing;
+      if (i < ammo) {
+        gfx.fillStyle(this.playerColor, 1);
+        gfx.fillCircle(x, 0, dotRadius);
+      } else {
+        gfx.lineStyle(1, this.playerColor, 0.3);
+        gfx.strokeCircle(x, 0, dotRadius);
+      }
+    }
+  }
+
   private handlePlayerDied = (payload: { playerId: string; killerId: string | null }): void => {
     if (payload.playerId !== this.myId) return;
     this.isDead = true;
     if (this.shipSprite) {
       this.shipSprite.setActive(false).setVisible(false);
       (this.shipSprite.body as Phaser.Physics.Arcade.Body).setEnable(false);
+      this.ammoDisplay?.setVisible(false);
     }
     this.time.delayedCall(RESPAWN.delayMs, () => this.respawnLocalShip());
   };
@@ -249,6 +281,7 @@ export class GameScene extends Phaser.Scene {
     body.setVelocity(0, 0);
     body.setEnable(true);
     this.shipSprite.setActive(true).setVisible(true);
+    this.ammoDisplay?.setVisible(true);
     this.bulletSystem?.resetAmmo();
     this.isDead = false;
     emit('player:respawn', { x, y });
@@ -268,6 +301,8 @@ export class GameScene extends Phaser.Scene {
     this.bulletHitCollider = null;
     this.shipSprite?.destroy();
     this.shipSprite = null;
+    this.ammoDisplay?.destroy();
+    this.ammoDisplay = null;
     this.movementSystem = null;
     this.remotePlayerSystem?.destroy();
     this.remotePlayerSystem = null;
