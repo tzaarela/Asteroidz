@@ -3,6 +3,7 @@ import type { LobbyState, PlayerTransform, ScoreEntry, PickupType } from '@aster
 import { MatchPhase, ARENA, PHYSICS, SHIP, NETWORK, RESPAWN, AMMO } from '@asteroidz/shared';
 import { on, off, emit, getSocketId } from '../network/socket';
 import { LobbyPanel } from '../ui/LobbyPanel';
+import { PlayerListPanel } from '../ui/PlayerListPanel';
 import { MovementSystem } from '../systems/movement';
 import { RemotePlayerSystem } from '../systems/remotePlayerSystem';
 import { BulletSystem } from '../systems/bulletSystem';
@@ -16,6 +17,8 @@ export class GameScene extends Phaser.Scene {
   private lobbyState!: LobbyState;
   private myId!: string;
   private lobbyPanel!: LobbyPanel;
+  private playerListPanel!: PlayerListPanel;
+  private currentScores: ScoreEntry[] = [];
   private titleText!: Phaser.GameObjects.Text;
 
   private shipSprite: Phaser.Physics.Arcade.Sprite | null = null;
@@ -30,6 +33,8 @@ export class GameScene extends Phaser.Scene {
   private matchActive = false;
   private tickAccumulator = 0;
   private isDead = false;
+  private ammoDisplay: Phaser.GameObjects.Graphics | null = null;
+  private playerColor: number = 0xffffff;
 
   constructor() {
     super('GameScene');
@@ -89,11 +94,14 @@ export class GameScene extends Phaser.Scene {
       () => this.onStartMatch(),
     );
 
+    this.playerListPanel = new PlayerListPanel(this, this.lobbyState, this.myId);
+
     on('lobby:state',      this.handleLobbyState);
     on('match:state',      this.handleMatchState);
     on('match:reset',      this.handleMatchReset);
     on('match:winner',     this.handleMatchWinner);
     on('player:died',      this.handlePlayerDied);
+    on('match:score',      this.handleMatchScore);
     on('pickup:spawn',     this.handlePickupSpawn);
     on('pickup:collected', this.handlePickupCollected);
 
@@ -103,8 +111,10 @@ export class GameScene extends Phaser.Scene {
       off('match:reset',      this.handleMatchReset);
       off('match:winner',     this.handleMatchWinner);
       off('player:died',      this.handlePlayerDied);
+      off('match:score',      this.handleMatchScore);
       off('pickup:spawn',     this.handlePickupSpawn);
       off('pickup:collected', this.handlePickupCollected);
+      this.playerListPanel?.destroy();
       this.remotePlayerSystem?.destroy();
       this.remoteBulletSystem?.destroy();
       this.pickupSystem?.destroy();
@@ -143,6 +153,12 @@ export class GameScene extends Phaser.Scene {
     } else {
       this.remotePlayerSystem?.syncWithLobbyState(lobbyState);
     }
+    this.playerListPanel.update(lobbyState, this.myId, this.currentScores);
+  };
+
+  private handleMatchScore = (payload: { scores: ScoreEntry[] }): void => {
+    this.currentScores = payload.scores;
+    this.playerListPanel.update(this.lobbyState, this.myId, this.currentScores);
   };
 
   private handleMatchState = (payload: { state: MatchPhase }): void => {
@@ -198,6 +214,9 @@ export class GameScene extends Phaser.Scene {
     // Circular body sized to roughly match the triangle
     body.setCircle(s, 0, 0);
 
+    this.playerColor = color;
+    this.ammoDisplay = this.add.graphics();
+
     this.setFollowTarget(this.shipSprite);
     this.movementSystem = new MovementSystem(this, this.shipSprite, this.keys!);
   }
@@ -238,6 +257,9 @@ export class GameScene extends Phaser.Scene {
       this.movementSystem?.update(delta);
       this.bulletSystem?.update(delta);
     }
+    if (this.ammoDisplay && this.shipSprite && this.bulletSystem) {
+      this.updateAmmoDisplay();
+    }
     this.remotePlayerSystem?.update();
     this.remoteBulletSystem?.update();
 
@@ -263,12 +285,36 @@ export class GameScene extends Phaser.Scene {
     emit('player:update', payload);
   }
 
+  private updateAmmoDisplay(): void {
+    const gfx = this.ammoDisplay!;
+    const ship = this.shipSprite!;
+    const ammo = this.bulletSystem!.ammoCount();
+    const dotRadius = 3;
+    const dotSpacing = 10;
+    const totalWidth = (AMMO.maxAmmo - 1) * dotSpacing;
+
+    gfx.clear();
+    gfx.setPosition(ship.x - totalWidth / 2, ship.y + SHIP.size + 6);
+
+    for (let i = 0; i < AMMO.maxAmmo; i++) {
+      const x = i * dotSpacing;
+      if (i < ammo) {
+        gfx.fillStyle(this.playerColor, 1);
+        gfx.fillCircle(x, 0, dotRadius);
+      } else {
+        gfx.lineStyle(1, this.playerColor, 0.3);
+        gfx.strokeCircle(x, 0, dotRadius);
+      }
+    }
+  }
+
   private handlePlayerDied = (payload: { playerId: string; killerId: string | null }): void => {
     if (payload.playerId !== this.myId) return;
     this.isDead = true;
     if (this.shipSprite) {
       this.shipSprite.setActive(false).setVisible(false);
       (this.shipSprite.body as Phaser.Physics.Arcade.Body).setEnable(false);
+      this.ammoDisplay?.setVisible(false);
     }
     this.time.delayedCall(RESPAWN.delayMs, () => this.respawnLocalShip());
   };
@@ -290,6 +336,7 @@ export class GameScene extends Phaser.Scene {
     body.setVelocity(0, 0);
     body.setEnable(true);
     this.shipSprite.setActive(true).setVisible(true);
+    this.ammoDisplay?.setVisible(true);
     this.bulletSystem?.resetAmmo();
     this.isDead = false;
     emit('player:respawn', { x, y });
@@ -313,6 +360,8 @@ export class GameScene extends Phaser.Scene {
     this.pickupSystem = null;
     this.shipSprite?.destroy();
     this.shipSprite = null;
+    this.ammoDisplay?.destroy();
+    this.ammoDisplay = null;
     this.movementSystem = null;
     this.remotePlayerSystem?.destroy();
     this.remotePlayerSystem = null;
@@ -344,6 +393,10 @@ export class GameScene extends Phaser.Scene {
       () => this.onLeave(),
       () => this.onStartMatch(),
     );
+
+    this.currentScores = [];
+    this.playerListPanel.destroy();
+    this.playerListPanel = new PlayerListPanel(this, this.lobbyState, this.myId);
 
     this.matchActive = false;
   };
