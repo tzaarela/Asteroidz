@@ -3,7 +3,7 @@ import { createServer } from 'http';
 import path from 'path';
 import { Server } from 'socket.io';
 import type { ClientToServerEvents, ServerToClientEvents } from '@asteroidz/shared';
-import { createLobby, joinLobby, leaveLobby, startMatch, handleDisconnect, getPlayerLobbyCode, handleKill, isLobbyLeader } from './lobby/lobbyManager.js';
+import { createLobby, joinLobby, leaveLobby, startMatch, handleDisconnect, getPlayerLobbyCode, handleKill, isLobbyLeader } from './game/lobbyManager.js';
 
 const PORT = process.env.PORT ?? 3000;
 const isProd = process.env.NODE_ENV === 'production';

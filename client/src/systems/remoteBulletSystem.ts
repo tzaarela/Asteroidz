@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { BULLET } from '@asteroidz/shared';
-import { on, off } from '../network/socket';
+import { on, off } from '../net/socket';
+import { Bullet } from '../objects/Bullet';
 import type { PlayerInfo } from '@asteroidz/shared';
 
 export class RemoteBulletSystem {
@@ -38,27 +39,28 @@ export class RemoteBulletSystem {
     const color = player?.color ?? '#FFFFFF';
     const textureKey = this.ensureTexture(color);
 
-    const bullet = this.bullets.get(payload.x, payload.y, textureKey) as Phaser.Physics.Arcade.Sprite | null;
-    if (!bullet) return;
+    const sprite = this.bullets.get(payload.x, payload.y, textureKey) as Phaser.Physics.Arcade.Sprite | null;
+    if (!sprite) return;
 
-    bullet.enableBody(true, payload.x, payload.y, true, true);
-    bullet.setData('spawnX', payload.x);
-    bullet.setData('spawnY', payload.y);
+    sprite.enableBody(true, payload.x, payload.y, true, true);
+    new Bullet(sprite, payload.x, payload.y);
 
     const dx = Math.cos(payload.rotation);
     const dy = Math.sin(payload.rotation);
-    (bullet.body as Phaser.Physics.Arcade.Body).setVelocity(dx * BULLET.speed, dy * BULLET.speed);
+    (sprite.body as Phaser.Physics.Arcade.Body).setVelocity(dx * BULLET.speed, dy * BULLET.speed);
   };
 
   update(): void {
     this.bullets.getChildren().forEach((obj) => {
-      const bullet = obj as Phaser.Physics.Arcade.Sprite;
-      if (!bullet.active) return;
+      const sprite = obj as Phaser.Physics.Arcade.Sprite;
+      if (!sprite.active) return;
 
-      const dx = bullet.x - (bullet.getData('spawnX') as number);
-      const dy = bullet.y - (bullet.getData('spawnY') as number);
+      const bullet = Bullet.from(sprite);
+      if (!bullet) return;
+      const dx = sprite.x - bullet.spawnX;
+      const dy = sprite.y - bullet.spawnY;
       if (dx * dx + dy * dy >= BULLET.maxDistance * BULLET.maxDistance) {
-        bullet.disableBody(true, true);
+        sprite.disableBody(true, true);
       }
     });
   }

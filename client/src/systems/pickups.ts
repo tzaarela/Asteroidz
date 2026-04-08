@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { ARENA, PICKUPS } from '@asteroidz/shared';
 import type { PickupType } from '@asteroidz/shared';
-import { emit } from '../network/socket';
+import { emit } from '../net/socket';
 
 const PICKUP_SIZE = 10;
 const PICKUP_TEXTURE = 'pickup_ammo';

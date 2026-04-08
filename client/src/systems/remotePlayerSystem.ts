@@ -1,13 +1,14 @@
 import Phaser from 'phaser';
 import type { LobbyState, PlayerTransform } from '@asteroidz/shared';
 import { SHIP } from '@asteroidz/shared';
-import { on, off } from '../network/socket';
-import { ensureShipTexture } from '../rendering/shipTexture';
+import { on, off } from '../net/socket';
+import { ensureShipTexture } from '../utils/shipTexture';
+import { Player } from '../objects/Player';
 
 interface RemoteShipState {
+  player: Player;
   prev: PlayerTransform;
   target: PlayerTransform;
-  sprite: Phaser.Physics.Arcade.Sprite;
   nameLabel: Phaser.GameObjects.Text;
 }
 
@@ -43,7 +44,8 @@ export class RemotePlayerSystem {
   /** Called every frame from GameScene.update(). */
   update(): void {
     for (const entry of this.ships.values()) {
-      const { sprite, nameLabel } = entry;
+      const sprite = entry.player.sprite;
+      const { nameLabel } = entry;
 
       // Position — simple linear lerp
       sprite.x = Phaser.Math.Linear(entry.prev.x, entry.target.x, LERP);
@@ -101,7 +103,7 @@ export class RemotePlayerSystem {
   /** Resolves a remote ship sprite back to the player's socket ID. */
   getPlayerIdForSprite(sprite: Phaser.Physics.Arcade.Sprite): string | undefined {
     for (const [id, entry] of this.ships) {
-      if (entry.sprite === sprite) return id;
+      if (entry.player.sprite === sprite) return id;
     }
   }
 
@@ -109,8 +111,9 @@ export class RemotePlayerSystem {
     if (payload.playerId === this.myId) return;
     const entry = this.ships.get(payload.playerId);
     if (!entry) return;
-    entry.sprite.setActive(false).setVisible(false);
-    (entry.sprite.body as Phaser.Physics.Arcade.Body).setEnable(false);
+    const sprite = entry.player.sprite;
+    sprite.setActive(false).setVisible(false);
+    (sprite.body as Phaser.Physics.Arcade.Body).setEnable(false);
   };
 
   private handlePlayerRespawn = (payload: { playerId: string; x: number; y: number }): void => {
@@ -120,9 +123,10 @@ export class RemotePlayerSystem {
     const snap: PlayerTransform = { x: payload.x, y: payload.y, rotation: 0, vx: 0, vy: 0 };
     entry.prev   = { ...snap };
     entry.target = { ...snap };
-    entry.sprite.setPosition(payload.x, payload.y);
-    entry.sprite.setActive(true).setVisible(true);
-    (entry.sprite.body as Phaser.Physics.Arcade.Body).setEnable(true);
+    const sprite = entry.player.sprite;
+    sprite.setPosition(payload.x, payload.y);
+    sprite.setActive(true).setVisible(true);
+    (sprite.body as Phaser.Physics.Arcade.Body).setEnable(true);
   };
 
   private handlePlayerUpdate = (payload: PlayerTransform & { playerId: string }): void => {
@@ -162,14 +166,15 @@ export class RemotePlayerSystem {
       .setOrigin(0.5, 1); // bottom-center anchored so it sits above the ship
 
     const zero: PlayerTransform = { x: 0, y: 0, rotation: 0, vx: 0, vy: 0 };
-    this.ships.set(id, { prev: { ...zero }, target: { ...zero }, sprite, nameLabel });
+    const player = new Player(id, hexColor, sprite, false);
+    this.ships.set(id, { player, prev: { ...zero }, target: { ...zero }, nameLabel });
   }
 
   private removePlayer(id: string): void {
     const entry = this.ships.get(id);
     if (!entry) return;
-    this.shipGroup.remove(entry.sprite, false, false);
-    entry.sprite.destroy();
+    this.shipGroup.remove(entry.player.sprite, false, false);
+    entry.player.destroy();
     entry.nameLabel.destroy();
     this.ships.delete(id);
   }

@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { LobbyState } from '@asteroidz/shared';
-import { connect, emit, on, off } from '../network/socket';
+import { connect, emit, on, off } from '../net/socket';
 
 type ResizableElement = {
   obj: { setPosition(x: number, y: number): unknown };
