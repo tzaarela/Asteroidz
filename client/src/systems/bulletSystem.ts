@@ -1,11 +1,12 @@
 import Phaser from 'phaser';
 import { BULLET, AMMO } from '@asteroidz/shared';
 import { emit } from '../network/socket';
+import type { InputState } from './movement';
 
 export class BulletSystem {
   private scene: Phaser.Scene;
   private ship: Phaser.Physics.Arcade.Sprite;
-  private spaceKey: Phaser.Input.Keyboard.Key;
+  private input: InputState;
   private bulletGroup: Phaser.Physics.Arcade.Group;
   private ammo: number = AMMO.startingAmmo;
   private lastFireTime: number = 0;
@@ -13,11 +14,11 @@ export class BulletSystem {
   constructor(
     scene: Phaser.Scene,
     ship: Phaser.Physics.Arcade.Sprite,
-    spaceKey: Phaser.Input.Keyboard.Key,
+    input: InputState,
   ) {
     this.scene = scene;
     this.ship = ship;
-    this.spaceKey = spaceKey;
+    this.input = input;
 
     // Generate a small bright circle texture for bullets
     const gfx = scene.add.graphics();
@@ -41,7 +42,7 @@ export class BulletSystem {
 
     // Fire when Space held, ammo available, and fire rate allows
     if (
-      this.spaceKey.isDown &&
+      this.input.shoot &&
       this.ammo > 0 &&
       now - this.lastFireTime >= BULLET.fireRateMs
     ) {
