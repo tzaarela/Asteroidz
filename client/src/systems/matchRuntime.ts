@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { LobbyState } from '@asteroidz/shared';
-import { ARENA, PHYSICS, SHIP, AMMO } from '@asteroidz/shared';
+import { PHYSICS, SHIP, AMMO } from '@asteroidz/shared';
 import { MovementSystem } from './movement';
 import type { InputState } from './movement';
 import { RemotePlayerSystem } from './remotePlayerSystem';
@@ -18,6 +18,8 @@ export interface MatchRuntimeConfig {
   inputState: InputState;
   touchInput: InputState;
   isTouchDevice: boolean;
+  spawnX: number;
+  spawnY: number;
   onBulletHit: Phaser.Types.Physics.Arcade.ArcadePhysicsCallback;
   onPickup: Phaser.Types.Physics.Arcade.ArcadePhysicsCallback;
 }
@@ -49,7 +51,7 @@ export class MatchRuntime {
   }
 
   constructor(config: MatchRuntimeConfig) {
-    const { scene, lobbyState, myId, inputState, touchInput, isTouchDevice, onBulletHit, onPickup } = config;
+    const { scene, lobbyState, myId, inputState, touchInput, isTouchDevice, spawnX, spawnY, onBulletHit, onPickup } = config;
     this.scene = scene;
 
     const me = lobbyState.players.find(p => p.id === myId);
@@ -59,9 +61,7 @@ export class MatchRuntime {
 
     // Local ship sprite — wrapped in a Player for gameplay systems to consume.
     const textureKey = ensureShipTexture(scene, me.color);
-    const cx = ARENA.worldWidth / 2;
-    const cy = ARENA.worldHeight / 2;
-    const shipSprite = scene.physics.add.sprite(cx, cy, textureKey);
+    const shipSprite = scene.physics.add.sprite(spawnX, spawnY, textureKey);
     shipSprite.setOrigin(0.5, 0.4); // keeps rotation visually centered on the body
     const body = shipSprite.body as Phaser.Physics.Arcade.Body;
     body.setMaxVelocity(PHYSICS.maxVelocity);
