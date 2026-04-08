@@ -12,6 +12,7 @@ export class LobbyPanel {
   private header: Phaser.GameObjects.Text;
   private leaveButton: Phaser.GameObjects.Text;
   private startButton: Phaser.GameObjects.Text;
+  private copyButton: Phaser.GameObjects.Text;
 
   // Dynamic player rows — rebuilt on each update
   private playerRows: Phaser.GameObjects.Text[] = [];
@@ -69,6 +70,28 @@ export class LobbyPanel {
       .on('pointerout', () => this.startButton.setColor('#4ECDC4'))
       .on('pointerdown', () => this.onStart());
 
+    // Copy lobby link button — visible to all players
+    const lobbyUrl = `${window.location.origin}/game/${lobbyState.code}`;
+    this.copyButton = scene.add
+      .text(this.cx, this.cy + 175, '[ COPY LOBBY LINK ]', {
+        fontSize: '16px',
+        color: '#aaaaaa',
+        fontFamily: FONT,
+      })
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerover', () => this.copyButton.setColor('#ffffff'))
+      .on('pointerout', () => this.copyButton.setColor('#aaaaaa'))
+      .on('pointerdown', () => {
+        navigator.clipboard.writeText(lobbyUrl).then(() => {
+          this.copyButton.setText('[ LINK COPIED! ]');
+          setTimeout(() => this.copyButton.setText('[ COPY LOBBY LINK ]'), 2000);
+        }).catch(() => {
+          this.copyButton.setText('[ COPY FAILED ]');
+          setTimeout(() => this.copyButton.setText('[ COPY LOBBY LINK ]'), 2000);
+        });
+      });
+
     this.update(lobbyState, myId);
   }
 
@@ -115,6 +138,7 @@ export class LobbyPanel {
     this.header.destroy();
     this.leaveButton.destroy();
     this.startButton.destroy();
+    this.copyButton.destroy();
     for (const row of this.playerRows) row.destroy();
     this.playerRows = [];
   }
