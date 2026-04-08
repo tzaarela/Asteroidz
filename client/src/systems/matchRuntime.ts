@@ -8,7 +8,8 @@ import { BulletSystem } from './bulletSystem';
 import { RemoteBulletSystem } from './remoteBulletSystem';
 import { PickupSystem } from './pickups';
 import { TouchControls } from '../ui/touchControls';
-import { ensureShipTexture } from '../rendering/shipTexture';
+import { ensureShipTexture } from '../utils/shipTexture';
+import { Player } from '../objects/Player';
 
 export interface MatchRuntimeConfig {
   scene: Phaser.Scene;
@@ -28,7 +29,7 @@ export interface MatchRuntimeConfig {
  * transitions into Warmup/Active, destroyed on match reset.
  */
 export class MatchRuntime {
-  readonly shipSprite: Phaser.Physics.Arcade.Sprite;
+  readonly player: Player;
   readonly movement: MovementSystem;
   readonly remotePlayers: RemotePlayerSystem;
   readonly bullets: BulletSystem;
@@ -42,6 +43,11 @@ export class MatchRuntime {
   private readonly ammoDisplay: Phaser.GameObjects.Graphics;
   private readonly playerColor: number;
 
+  /** Convenience accessor — external callers (GameScene camera, state sender) read the sprite directly. */
+  get shipSprite(): Phaser.Physics.Arcade.Sprite {
+    return this.player.sprite;
+  }
+
   constructor(config: MatchRuntimeConfig) {
     const { scene, lobbyState, myId, inputState, touchInput, isTouchDevice, onBulletHit, onPickup } = config;
     this.scene = scene;
@@ -51,24 +57,25 @@ export class MatchRuntime {
       throw new Error(`MatchRuntime: local player ${myId} not found in lobby state`);
     }
 
-    // Local ship sprite
+    // Local ship sprite — wrapped in a Player for gameplay systems to consume.
     const textureKey = ensureShipTexture(scene, me.color);
     const cx = ARENA.worldWidth / 2;
     const cy = ARENA.worldHeight / 2;
-    this.shipSprite = scene.physics.add.sprite(cx, cy, textureKey);
-    this.shipSprite.setOrigin(0.5, 0.4); // keeps rotation visually centered on the body
-    const body = this.shipSprite.body as Phaser.Physics.Arcade.Body;
+    const shipSprite = scene.physics.add.sprite(cx, cy, textureKey);
+    shipSprite.setOrigin(0.5, 0.4); // keeps rotation visually centered on the body
+    const body = shipSprite.body as Phaser.Physics.Arcade.Body;
     body.setMaxVelocity(PHYSICS.maxVelocity);
     body.setCircle(SHIP.size, 0, 0);
+    this.player = new Player(myId, me.color, shipSprite, true);
 
     this.playerColor = Phaser.Display.Color.HexStringToColor(me.color).color;
     this.ammoDisplay = scene.add.graphics();
 
     // Gameplay systems
-    this.movement = new MovementSystem(scene, this.shipSprite, inputState);
+    this.movement = new MovementSystem(scene, shipSprite, inputState);
     this.remotePlayers = new RemotePlayerSystem(scene, myId, lobbyState);
     this.remoteBullets = new RemoteBulletSystem(scene, () => lobbyState.players);
-    this.bullets = new BulletSystem(scene, this.shipSprite, inputState);
+    this.bullets = new BulletSystem(scene, shipSprite, inputState);
     this.touch = isTouchDevice ? new TouchControls(scene, touchInput) : null;
 
     // Physics overlaps
@@ -103,19 +110,21 @@ export class MatchRuntime {
 
   /** Hide/disable the local ship — called when the player dies. */
   hideShip(): void {
-    this.shipSprite.setActive(false).setVisible(false);
-    (this.shipSprite.body as Phaser.Physics.Arcade.Body).setEnable(false);
+    const sprite = this.player.sprite;
+    sprite.setActive(false).setVisible(false);
+    (sprite.body as Phaser.Physics.Arcade.Body).setEnable(false);
     this.ammoDisplay.setVisible(false);
   }
 
   /** Reposition and re-enable the ship after the respawn delay. */
   respawnAt(x: number, y: number): void {
-    this.shipSprite.setPosition(x, y);
-    this.shipSprite.setRotation(0);
-    const body = this.shipSprite.body as Phaser.Physics.Arcade.Body;
+    const sprite = this.player.sprite;
+    sprite.setPosition(x, y);
+    sprite.setRotation(0);
+    const body = sprite.body as Phaser.Physics.Arcade.Body;
     body.setVelocity(0, 0);
     body.setEnable(true);
-    this.shipSprite.setActive(true).setVisible(true);
+    sprite.setActive(true).setVisible(true);
     this.ammoDisplay.setVisible(true);
     this.bullets.resetAmmo();
   }
@@ -124,7 +133,7 @@ export class MatchRuntime {
     this.bulletHitCollider.destroy();
     this.pickupCollider.destroy();
     this.pickups.destroy();
-    this.shipSprite.destroy();
+    this.player.destroy();
     this.ammoDisplay.destroy();
     this.remotePlayers.destroy();
     this.remoteBullets.destroy();
@@ -133,7 +142,7 @@ export class MatchRuntime {
 
   private updateAmmoDisplay(): void {
     const gfx = this.ammoDisplay;
-    const ship = this.shipSprite;
+    const ship = this.player.sprite;
     const ammo = this.bullets.ammoCount();
     const dotRadius = 3;
     const dotSpacing = 10;

@@ -4,7 +4,7 @@ import path from 'path';
 export default defineConfig({
   resolve: {
     alias: [
-      { find: '@asteroidz/shared/constants', replacement: path.resolve(__dirname, '../shared/constants.ts') },
+      { find: '@asteroidz/shared/constants', replacement: path.resolve(__dirname, '../shared/constants/index.ts') },
       { find: '@asteroidz/shared', replacement: path.resolve(__dirname, '../shared/types/index.ts') },
     ],
   },
