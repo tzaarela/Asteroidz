@@ -2,9 +2,9 @@
 // Import from '@asteroidz/shared/constants' in both client and server.
 
 export const PHYSICS = {
-  thrustForce: 200,        // pixels/s² acceleration when thrusting
+  thrustForce: 300,        // pixels/s² acceleration when thrusting
   rotationSpeed: 180,      // degrees/s
-  maxVelocity: 400,        // pixels/s
+  maxVelocity: 800,        // pixels/s
   drag: 0.98,              // velocity multiplier per frame (1 = no drag, 0 = instant stop)
 } as const;
 
