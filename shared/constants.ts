@@ -43,6 +43,11 @@ export const ARENA = {
   worldHeight: 3200,       // pixels
   arenaRadius: 1400,       // pixels — radius of the playable circular area
   wallChunkCount: 24,      // number of polygon wall chunks forming the boundary
+  arenaChunkSeed: 77,      // LCG seed for chunk vertex jitter (separate from STAR_SEED=42)
+  chunkInnerRadius: 1340,  // arenaRadius - 60; inner face of wall ring
+  chunkOuterRadius: 1460,  // arenaRadius + 60; outer face of wall ring
+  chunkArcGapFraction: 0.08, // fraction of arc span removed as gap on each side
+  chunkVertexJitter: 18,   // ±px random displacement per polygon vertex
 } as const;
 
 export const NETWORK = {
@@ -51,7 +56,7 @@ export const NETWORK = {
 } as const;
 
 export const MATCH = {
-  killsToWin: 5,
+  killsToWin: 3,
   victoryDisplayMs: 7000,  // ms to show victory screen before returning to warmup
 } as const;
 
