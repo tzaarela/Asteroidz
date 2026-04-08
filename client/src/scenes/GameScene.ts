@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { LobbyState, PlayerTransform, ScoreEntry, PickupType } from '@asteroidz/shared';
-import { MatchPhase, ARENA, NETWORK, RESPAWN, AMMO } from '@asteroidz/shared';
+import { MatchPhase, ARENA, NETWORK, RESPAWN } from '@asteroidz/shared';
 import { on, off, emit, getSocketId } from '../net/socket';
 import { LobbyPanel } from '../ui/LobbyPanel';
 import { PlayerListPanel } from '../ui/PlayerListPanel';
@@ -43,7 +43,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.physics.world.setBounds(0, 0, ARENA.worldWidth, ARENA.worldHeight);
+    this.matter.world.setBounds(0, 0, ARENA.worldWidth, ARENA.worldHeight);
     this.cameras.main.setBounds(0, 0, ARENA.worldWidth, ARENA.worldHeight);
 
     this.keys = this.input.keyboard!.addKeys('W,A,D,SPACE') as {
@@ -171,37 +171,10 @@ export class GameScene extends Phaser.Scene {
       isTouchDevice: this.isTouchDevice,
       spawnX: spawn.x,
       spawnY: spawn.y,
-      onBulletHit: this.onBulletHitPlayer as Phaser.Types.Physics.Arcade.ArcadePhysicsCallback,
-      onPickup: this.onPickupCollected as Phaser.Types.Physics.Arcade.ArcadePhysicsCallback,
     });
 
     this.cameras.main.startFollow(this.runtime.shipSprite, true, 0.1, 0.1);
     this.cameras.main.setDeadzone(60, 40);
-  };
-
-  private onBulletHitPlayer = (
-    bullet: Phaser.Types.Physics.Arcade.GameObjectWithBody,
-    remoteShip: Phaser.Types.Physics.Arcade.GameObjectWithBody,
-  ): void => {
-    if (!this.runtime) return;
-    this.runtime.bullets.destroyBullet(bullet as Phaser.Physics.Arcade.Sprite);
-    const targetId = this.runtime.remotePlayers.getPlayerIdForSprite(
-      remoteShip as Phaser.Physics.Arcade.Sprite,
-    );
-    if (targetId) emit('player:hit', { targetId });
-  };
-
-  private onPickupCollected = (
-    _ship: Phaser.Types.Physics.Arcade.GameObjectWithBody,
-    pickupObj: Phaser.Types.Physics.Arcade.GameObjectWithBody,
-  ): void => {
-    if (!this.runtime) return;
-    const sprite = pickupObj as Phaser.Physics.Arcade.Sprite;
-    const pickupId = sprite.getData('pickupId') as string;
-    const type = sprite.getData('type') as PickupType;
-    this.runtime.pickups.removePickup(pickupId);
-    this.runtime.bullets.addAmmo(AMMO.ammoPerPickup);
-    emit('pickup:collected', { pickupId, type });
   };
 
   private handlePickupSpawn = (payload: { pickupId: string; type: PickupType; x: number; y: number }): void => {
@@ -234,7 +207,7 @@ export class GameScene extends Phaser.Scene {
   private sendPlayerState(): void {
     if (!this.runtime) return;
     const ship = this.runtime.shipSprite;
-    const body = ship.body as Phaser.Physics.Arcade.Body;
+    const body = ship.body as MatterJS.BodyType;
     const payload: PlayerTransform = {
       x: ship.x,
       y: ship.y,
