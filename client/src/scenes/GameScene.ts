@@ -161,6 +161,7 @@ export class GameScene extends Phaser.Scene {
     this.titleText.destroy();
     this.lobbyPanel.destroy();
 
+    const spawn = this.calculateSafeSpawnPosition();
     this.runtime = new MatchRuntime({
       scene: this,
       lobbyState: this.lobbyState,
@@ -168,6 +169,8 @@ export class GameScene extends Phaser.Scene {
       inputState: this.inputState,
       touchInput: this.touchInput,
       isTouchDevice: this.isTouchDevice,
+      spawnX: spawn.x,
+      spawnY: spawn.y,
       onBulletHit: this.onBulletHitPlayer as Phaser.Types.Physics.Arcade.ArcadePhysicsCallback,
       onPickup: this.onPickupCollected as Phaser.Types.Physics.Arcade.ArcadePhysicsCallback,
     });
