@@ -169,6 +169,12 @@ export function getPlayerLobbyCode(socketId: string): string | undefined {
   return socketToLobby.get(socketId);
 }
 
+export function isLobbyLeader(socketId: string): boolean {
+  const code = socketToLobby.get(socketId);
+  if (!code) return false;
+  return lobbies.get(code)?.leaderId === socketId;
+}
+
 export function handleKill(socket: GameSocket, io: GameServer, targetId: string): void {
   const code = socketToLobby.get(socket.id);
   if (!code) return;
