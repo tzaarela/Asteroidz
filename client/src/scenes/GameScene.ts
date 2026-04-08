@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import type { LobbyState, PlayerTransform } from '@asteroidz/shared';
+import type { LobbyState, PlayerTransform, ScoreEntry } from '@asteroidz/shared';
 import { MatchPhase, ARENA, PHYSICS, SHIP, NETWORK, RESPAWN, AMMO } from '@asteroidz/shared';
 import { on, off, emit, getSocketId } from '../network/socket';
 import { LobbyPanel } from '../ui/LobbyPanel';
@@ -24,6 +24,7 @@ export class GameScene extends Phaser.Scene {
   private remoteBulletSystem: RemoteBulletSystem | null = null;
   private bulletHitCollider: Phaser.Physics.Arcade.Collider | null = null;
   private keys: { W: Phaser.Input.Keyboard.Key; A: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key; SPACE: Phaser.Input.Keyboard.Key } | null = null;
+  private killCountText: Phaser.GameObjects.Text | null = null;
   private matchActive = false;
   private tickAccumulator = 0;
   private isDead = false;
@@ -87,12 +88,14 @@ export class GameScene extends Phaser.Scene {
     on('lobby:state',  this.handleLobbyState);
     on('match:state',  this.handleMatchState);
     on('match:reset',  this.handleMatchReset);
+    on('match:score',  this.handleMatchScore);
     on('player:died',  this.handlePlayerDied);
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       off('lobby:state',  this.handleLobbyState);
       off('match:state',  this.handleMatchState);
       off('match:reset',  this.handleMatchReset);
+      off('match:score',  this.handleMatchScore);
       off('player:died',  this.handlePlayerDied);
       this.remotePlayerSystem?.destroy();
       this.remoteBulletSystem?.destroy();
@@ -141,6 +144,15 @@ export class GameScene extends Phaser.Scene {
     this.titleText.destroy();
     this.lobbyPanel.destroy();
 
+    const me = this.lobbyState.players.find(p => p.id === this.myId);
+    this.killCountText = this.add
+      .text(20, 20, '0', {
+        fontSize: '32px',
+        color: me?.color ?? '#ffffff',
+        fontFamily: 'monospace',
+      })
+      .setScrollFactor(0);
+
     this.createLocalShip();
     this.remotePlayerSystem = new RemotePlayerSystem(this, this.myId, this.lobbyState);
     this.remoteBulletSystem = new RemoteBulletSystem(this, () => this.lobbyState.players);
@@ -178,6 +190,13 @@ export class GameScene extends Phaser.Scene {
     this.setFollowTarget(this.shipSprite);
     this.movementSystem = new MovementSystem(this, this.shipSprite, this.keys!);
   }
+
+  private handleMatchScore = (payload: { scores: ScoreEntry[] }): void => {
+    const entry = payload.scores.find(s => s.playerId === this.myId);
+    if (entry) {
+      this.killCountText?.setText(String(entry.kills));
+    }
+  };
 
   private onBulletHitPlayer = (
     bullet: Phaser.Types.Physics.Arcade.GameObjectWithBody,
@@ -263,6 +282,8 @@ export class GameScene extends Phaser.Scene {
     this.remoteBulletSystem?.destroy();
     this.remoteBulletSystem = null;
     this.bulletSystem = null;
+    this.killCountText?.destroy();
+    this.killCountText = null;
     this.isDead = false;
 
     this.cameras.main.stopFollow();
