@@ -42,7 +42,8 @@ export class LobbyPanel {
         color: '#FFE66D',
         fontFamily: FONT,
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setScrollFactor(0);
 
     // Leave button
     this.leaveButton = scene.add
@@ -52,6 +53,7 @@ export class LobbyPanel {
         fontFamily: FONT,
       })
       .setOrigin(0.5)
+      .setScrollFactor(0)
       .setInteractive({ useHandCursor: true })
       .on('pointerover', () => this.leaveButton.setColor('#ff9999'))
       .on('pointerout', () => this.leaveButton.setColor('#FF6B6B'))
@@ -65,6 +67,7 @@ export class LobbyPanel {
         fontFamily: FONT,
       })
       .setOrigin(0.5)
+      .setScrollFactor(0)
       .setInteractive({ useHandCursor: true })
       .on('pointerover', () => this.startButton.setColor('#74B9FF'))
       .on('pointerout', () => this.startButton.setColor('#4ECDC4'))
@@ -79,6 +82,7 @@ export class LobbyPanel {
         fontFamily: FONT,
       })
       .setOrigin(0.5)
+      .setScrollFactor(0)
       .setInteractive({ useHandCursor: true })
       .on('pointerover', () => this.copyButton.setColor('#ffffff'))
       .on('pointerout', () => this.copyButton.setColor('#aaaaaa'))
@@ -119,7 +123,8 @@ export class LobbyPanel {
           color: player.color,
           fontFamily: FONT,
         })
-        .setOrigin(0.5);
+        .setOrigin(0.5)
+        .setScrollFactor(0);
 
       this.playerRows.push(row);
     });
