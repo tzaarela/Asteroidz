@@ -1,0 +1,21 @@
+Let's do a task in monday.com, using the Monday mcp server.
+
+Let's combine all tasks in the To-Do group into a single task. But dont combine tasks that have status "InProgress".
+
+Use this MCP command to get the list: Run Query or Mutation on any monday.com API (MCP)(query: "query GetGroupItems($boardId: ID!, $groupId: String!) {\n  boards(ids:  
+                                                                          [$boardId]) {\n    groups(ids: [$groupId]) {\n      id\n      title\n
+                                                                          items_page(limit: 100) {\n        items {\n          id\n          name\n        
+                                                                            column_values(ids: [\"task_status\", \"task_priority\"]) {\n            id\n   
+                                                                                   text\n            value\n          }\n        }\n      }\n    }\n       
+                                                                          }\n}", variables: "{\"boardId\": \"5094052025\", \"groupId\": \"topics\"}")
+
+
+Read the implementation note in the UPDATE field of the tasks using this method, fill in the objectId:
+
+
+claude.ai monday.com - Get Updates (MCP)(objectId: "", objectType: "Item")
+
+
+When I tell you to make a Pull Request for the task, make sure to only use GitHub MCP and not bash commands.
+
+Lastly set the all the task statuses to done in monday. 
