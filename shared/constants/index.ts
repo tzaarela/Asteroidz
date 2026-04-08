@@ -2,9 +2,9 @@
 // Import from '@asteroidz/shared/constants' in both client and server.
 
 export const PHYSICS = {
-  thrustForce: 400,        // pixels/s² acceleration when thrusting
+  thrustForce: 10,        // pixels/s² acceleration when thrusting
   rotationSpeed: 180,      // degrees/s
-  maxVelocity: 1200,        // pixels/s
+  maxVelocity: 30,        // pixels/s
   drag: 0.98,              // velocity multiplier per frame (1 = no drag, 0 = instant stop)
 } as const;
 
@@ -13,7 +13,7 @@ export const SHIP = {
 } as const;
 
 export const BULLET = {
-  speed: 600,              // pixels/s
+  speed: 30,              // pixels/s
   maxDistance: 800,        // pixels before despawn
   size: 4,                 // radius in pixels
   fireRateMs: 200,         // minimum ms between shots
