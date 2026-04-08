@@ -56,6 +56,18 @@ io.on('connection', (socket) => {
     if (!lobbyCode) return;
     io.to(lobbyCode).emit('player:respawn', { playerId: socket.id, x, y });
   });
+
+  socket.on('pickup:spawn', (payload) => {
+    const lobbyCode = getPlayerLobbyCode(socket.id);
+    if (!lobbyCode) return;
+    socket.to(lobbyCode).emit('pickup:spawn', payload);
+  });
+
+  socket.on('pickup:collected', ({ pickupId, type }) => {
+    const lobbyCode = getPlayerLobbyCode(socket.id);
+    if (!lobbyCode) return;
+    socket.to(lobbyCode).emit('pickup:collected', { pickupId, collectorId: socket.id, type });
+  });
 });
 
 httpServer.listen(PORT, () => {

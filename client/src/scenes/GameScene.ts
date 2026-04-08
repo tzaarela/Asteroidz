@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import type { LobbyState, PlayerTransform } from '@asteroidz/shared';
+import type { LobbyState, PlayerTransform, ScoreEntry, PickupType } from '@asteroidz/shared';
 import { MatchPhase, ARENA, PHYSICS, SHIP, NETWORK, RESPAWN, AMMO } from '@asteroidz/shared';
 import { on, off, emit, getSocketId } from '../network/socket';
 import { LobbyPanel } from '../ui/LobbyPanel';
@@ -7,6 +7,7 @@ import { MovementSystem } from '../systems/movement';
 import { RemotePlayerSystem } from '../systems/remotePlayerSystem';
 import { BulletSystem } from '../systems/bulletSystem';
 import { RemoteBulletSystem } from '../systems/remoteBulletSystem';
+import { PickupSystem } from '../systems/pickups';
 
 const STAR_COUNT = 300;
 const STAR_SEED = 42;
@@ -23,6 +24,8 @@ export class GameScene extends Phaser.Scene {
   private bulletSystem: BulletSystem | null = null;
   private remoteBulletSystem: RemoteBulletSystem | null = null;
   private bulletHitCollider: Phaser.Physics.Arcade.Collider | null = null;
+  private pickupSystem: PickupSystem | null = null;
+  private pickupCollider: Phaser.Physics.Arcade.Collider | null = null;
   private keys: { W: Phaser.Input.Keyboard.Key; A: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key; SPACE: Phaser.Input.Keyboard.Key } | null = null;
   private matchActive = false;
   private tickAccumulator = 0;
@@ -40,6 +43,8 @@ export class GameScene extends Phaser.Scene {
     this.remotePlayerSystem = null;
     this.bulletSystem = null;
     this.remoteBulletSystem = null;
+    this.pickupSystem = null;
+    this.pickupCollider = null;
     this.matchActive = false;
     this.tickAccumulator = 0;
     this.isDead = false;
@@ -84,18 +89,25 @@ export class GameScene extends Phaser.Scene {
       () => this.onStartMatch(),
     );
 
-    on('lobby:state',  this.handleLobbyState);
-    on('match:state',  this.handleMatchState);
-    on('match:reset',  this.handleMatchReset);
-    on('player:died',  this.handlePlayerDied);
+    on('lobby:state',      this.handleLobbyState);
+    on('match:state',      this.handleMatchState);
+    on('match:reset',      this.handleMatchReset);
+    on('match:winner',     this.handleMatchWinner);
+    on('player:died',      this.handlePlayerDied);
+    on('pickup:spawn',     this.handlePickupSpawn);
+    on('pickup:collected', this.handlePickupCollected);
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      off('lobby:state',  this.handleLobbyState);
-      off('match:state',  this.handleMatchState);
-      off('match:reset',  this.handleMatchReset);
-      off('player:died',  this.handlePlayerDied);
+      off('lobby:state',      this.handleLobbyState);
+      off('match:state',      this.handleMatchState);
+      off('match:reset',      this.handleMatchReset);
+      off('match:winner',     this.handleMatchWinner);
+      off('player:died',      this.handlePlayerDied);
+      off('pickup:spawn',     this.handlePickupSpawn);
+      off('pickup:collected', this.handlePickupCollected);
       this.remotePlayerSystem?.destroy();
       this.remoteBulletSystem?.destroy();
+      this.pickupSystem?.destroy();
       this.bulletSystem = null;
     });
   }
@@ -150,6 +162,17 @@ export class GameScene extends Phaser.Scene {
       this.remotePlayerSystem.getShipGroup(),
       this.onBulletHitPlayer as Phaser.Types.Physics.Arcade.ArcadePhysicsCallback,
     ) as Phaser.Physics.Arcade.Collider;
+
+    this.pickupSystem = new PickupSystem(this);
+    this.pickupCollider = this.physics.add.overlap(
+      this.shipSprite!,
+      this.pickupSystem.getPickupGroup(),
+      this.onPickupCollected as Phaser.Types.Physics.Arcade.ArcadePhysicsCallback,
+    ) as Phaser.Physics.Arcade.Collider;
+
+    if (this.myId === this.lobbyState.leaderId) {
+      this.pickupSystem.startSpawning();
+    }
   };
 
   private createLocalShip(): void {
@@ -188,6 +211,26 @@ export class GameScene extends Phaser.Scene {
       remoteShip as Phaser.Physics.Arcade.Sprite,
     );
     if (targetId) emit('player:hit', { targetId });
+  };
+
+  private onPickupCollected = (
+    _ship: Phaser.Types.Physics.Arcade.GameObjectWithBody,
+    pickupObj: Phaser.Types.Physics.Arcade.GameObjectWithBody,
+  ): void => {
+    const sprite = pickupObj as Phaser.Physics.Arcade.Sprite;
+    const pickupId = sprite.getData('pickupId') as string;
+    const type = sprite.getData('type') as PickupType;
+    this.pickupSystem!.removePickup(pickupId);
+    this.bulletSystem!.addAmmo(AMMO.ammoPerPickup);
+    emit('pickup:collected', { pickupId, type });
+  };
+
+  private handlePickupSpawn = (payload: { pickupId: string; type: PickupType; x: number; y: number }): void => {
+    this.pickupSystem?.spawnPickup(payload.pickupId, payload.type, payload.x, payload.y);
+  };
+
+  private handlePickupCollected = (payload: { pickupId: string; collectorId: string; type: PickupType }): void => {
+    this.pickupSystem?.removePickup(payload.pickupId);
   };
 
   update(_time: number, delta: number): void {
@@ -252,9 +295,22 @@ export class GameScene extends Phaser.Scene {
     emit('player:respawn', { x, y });
   }
 
+  private handleMatchWinner = (payload: { winnerId: string; scores: ScoreEntry[] }): void => {
+    this.scene.launch('VictoryScene', {
+      winnerId: payload.winnerId,
+      scores: payload.scores,
+      players: this.lobbyState.players,
+    });
+  };
+
   private handleMatchReset = (): void => {
+    this.scene.stop('VictoryScene');
     this.bulletHitCollider?.destroy();
     this.bulletHitCollider = null;
+    this.pickupCollider?.destroy();
+    this.pickupCollider = null;
+    this.pickupSystem?.destroy();
+    this.pickupSystem = null;
     this.shipSprite?.destroy();
     this.shipSprite = null;
     this.movementSystem = null;

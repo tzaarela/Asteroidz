@@ -70,6 +70,10 @@ export class BulletSystem {
     this.ammo = AMMO.startingAmmo;
   }
 
+  addAmmo(count: number): void {
+    this.ammo = Math.min(this.ammo + count, AMMO.maxAmmo);
+  }
+
   private fire(now: number): void {
     const x = this.ship.x;
     const y = this.ship.y;
