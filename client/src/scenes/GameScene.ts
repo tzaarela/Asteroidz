@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import type { LobbyState, PlayerTransform } from '@asteroidz/shared';
+import type { LobbyState, PlayerTransform, ScoreEntry } from '@asteroidz/shared';
 import { MatchPhase, ARENA, PHYSICS, SHIP, NETWORK, RESPAWN, AMMO } from '@asteroidz/shared';
 import { on, off, emit, getSocketId } from '../network/socket';
 import { LobbyPanel } from '../ui/LobbyPanel';
@@ -86,16 +86,18 @@ export class GameScene extends Phaser.Scene {
       () => this.onStartMatch(),
     );
 
-    on('lobby:state',  this.handleLobbyState);
-    on('match:state',  this.handleMatchState);
-    on('match:reset',  this.handleMatchReset);
-    on('player:died',  this.handlePlayerDied);
+    on('lobby:state',   this.handleLobbyState);
+    on('match:state',   this.handleMatchState);
+    on('match:reset',   this.handleMatchReset);
+    on('match:winner',  this.handleMatchWinner);
+    on('player:died',   this.handlePlayerDied);
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      off('lobby:state',  this.handleLobbyState);
-      off('match:state',  this.handleMatchState);
-      off('match:reset',  this.handleMatchReset);
-      off('player:died',  this.handlePlayerDied);
+      off('lobby:state',   this.handleLobbyState);
+      off('match:state',   this.handleMatchState);
+      off('match:reset',   this.handleMatchReset);
+      off('match:winner',  this.handleMatchWinner);
+      off('player:died',   this.handlePlayerDied);
       this.remotePlayerSystem?.destroy();
       this.remoteBulletSystem?.destroy();
       this.bulletSystem = null;
@@ -285,7 +287,16 @@ export class GameScene extends Phaser.Scene {
     emit('player:respawn', { x, y });
   }
 
+  private handleMatchWinner = (payload: { winnerId: string; scores: ScoreEntry[] }): void => {
+    this.scene.launch('VictoryScene', {
+      winnerId: payload.winnerId,
+      scores: payload.scores,
+      players: this.lobbyState.players,
+    });
+  };
+
   private handleMatchReset = (): void => {
+    this.scene.stop('VictoryScene');
     this.bulletHitCollider?.destroy();
     this.bulletHitCollider = null;
     this.shipSprite?.destroy();
