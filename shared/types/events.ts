@@ -61,6 +61,9 @@ export interface ClientToServerEvents {
   /** Player collected a pickup. Server removes it for everyone. */
   'pickup:collected': (payload: { pickupId: string; type: PickupType }) => void;
 
+  /** Leader-only: spawn a pickup. Server relays to all other players. */
+  'pickup:spawn': (payload: { pickupId: string; type: PickupType; x: number; y: number }) => void;
+
   // --- Arena ---
 
   /** A wall chunk was destroyed by a bullet. Relayed to all others. */
