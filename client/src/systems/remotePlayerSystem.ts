@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import type { LobbyState, PlayerTransform } from '@asteroidz/shared';
 import { SHIP } from '@asteroidz/shared';
 import { on, off } from '../network/socket';
+import { ensureShipTexture } from '../rendering/shipTexture';
 
 interface RemoteShipState {
   prev: PlayerTransform;
@@ -146,9 +147,11 @@ export class RemotePlayerSystem {
   }
 
   private addPlayer(id: string, hexColor: string, name: string): void {
-    const textureKey = this.ensureTexture(hexColor);
+    const textureKey = ensureShipTexture(this.scene, hexColor);
 
     const sprite = this.scene.physics.add.sprite(0, 0, textureKey);
+    // Match local-ship setup so rotation, hit circle, and flames align across ships.
+    sprite.setOrigin(0.5, 0.4);
     const body = sprite.body as Phaser.Physics.Arcade.Body;
     body.setCircle(SHIP.size, 0, 0);
     body.setImmovable(true); // Not driven by local physics — exists for hit detection
@@ -171,18 +174,4 @@ export class RemotePlayerSystem {
     this.ships.delete(id);
   }
 
-  /** Generates a triangle texture for the given hex color, reusing it if already cached. */
-  private ensureTexture(hexColor: string): string {
-    const key = `ship_${hexColor.replace('#', '')}`;
-    if (!this.scene.textures.exists(key)) {
-      const color = Phaser.Display.Color.HexStringToColor(hexColor).color;
-      const s = SHIP.size;
-      const gfx = this.scene.add.graphics();
-      gfx.fillStyle(color, 1);
-      gfx.fillTriangle(s, 0, 0, s * 2, s * 2, s * 2); // same shape as local ship
-      gfx.generateTexture(key, s * 2, s * 2);
-      gfx.destroy();
-    }
-    return key;
-  }
 }

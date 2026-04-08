@@ -95,8 +95,3 @@ export interface LobbyState {
   matchPhase: MatchPhase;
 }
 
-export interface MatchState {
-  phase: MatchPhase;
-  scores: Record<string, number>; // playerId → kills
-  winnerId: string | null;
-}
