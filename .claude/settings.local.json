@@ -12,7 +12,17 @@
       "Bash(npm run:*)",
       "mcp__github__create_branch",
       "Bash(pnpm --filter @asteroidz/shared build)",
-      "Bash(pnpm --filter @asteroidz/server build)"
+      "Bash(pnpm --filter @asteroidz/server build)",
+      "Bash(grep -n \"thrustForce\\\\|rotationSpeed\\\\|maxVelocity\\\\|drag\\\\|400\\\\|180\\\\|1200\\\\|0.98\" /c/Programming/UnityGames/Asteroidz/client/src/systems/*.ts)",
+      "Bash(pnpm --filter @asteroidz/shared typecheck)",
+      "Bash(pnpm --filter @asteroidz/client typecheck)",
+      "Bash(git stash:*)",
+      "Bash(command -v gh.exe)",
+      "Read(//c/Program Files/GitHub CLI/**)",
+      "Bash(grep -E \"\\\\.\\(ts|json|html\\)$\")",
+      "Bash(rm:*)",
+      "Bash(pnpm build:*)",
+      "Bash(where gh:*)"
     ]
   }
 }
