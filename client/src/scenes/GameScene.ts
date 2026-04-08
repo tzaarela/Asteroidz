@@ -3,6 +3,7 @@ import type { LobbyState, PlayerTransform, ScoreEntry } from '@asteroidz/shared'
 import { MatchPhase, ARENA, PHYSICS, SHIP, NETWORK, RESPAWN, AMMO } from '@asteroidz/shared';
 import { on, off, emit, getSocketId } from '../network/socket';
 import { LobbyPanel } from '../ui/LobbyPanel';
+import { PlayerListPanel } from '../ui/PlayerListPanel';
 import { MovementSystem } from '../systems/movement';
 import { RemotePlayerSystem } from '../systems/remotePlayerSystem';
 import { BulletSystem } from '../systems/bulletSystem';
@@ -15,6 +16,8 @@ export class GameScene extends Phaser.Scene {
   private lobbyState!: LobbyState;
   private myId!: string;
   private lobbyPanel!: LobbyPanel;
+  private playerListPanel!: PlayerListPanel;
+  private currentScores: ScoreEntry[] = [];
   private titleText!: Phaser.GameObjects.Text;
 
   private shipSprite: Phaser.Physics.Arcade.Sprite | null = null;
@@ -86,11 +89,14 @@ export class GameScene extends Phaser.Scene {
       () => this.onStartMatch(),
     );
 
+    this.playerListPanel = new PlayerListPanel(this, this.lobbyState, this.myId);
+
     on('lobby:state',   this.handleLobbyState);
     on('match:state',   this.handleMatchState);
     on('match:reset',   this.handleMatchReset);
     on('match:winner',  this.handleMatchWinner);
     on('player:died',   this.handlePlayerDied);
+    on('match:score',   this.handleMatchScore);
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       off('lobby:state',   this.handleLobbyState);
@@ -98,6 +104,8 @@ export class GameScene extends Phaser.Scene {
       off('match:reset',   this.handleMatchReset);
       off('match:winner',  this.handleMatchWinner);
       off('player:died',   this.handlePlayerDied);
+      off('match:score',   this.handleMatchScore);
+      this.playerListPanel?.destroy();
       this.remotePlayerSystem?.destroy();
       this.remoteBulletSystem?.destroy();
       this.bulletSystem = null;
@@ -135,6 +143,12 @@ export class GameScene extends Phaser.Scene {
     } else {
       this.remotePlayerSystem?.syncWithLobbyState(lobbyState);
     }
+    this.playerListPanel.update(lobbyState, this.myId, this.currentScores);
+  };
+
+  private handleMatchScore = (payload: { scores: ScoreEntry[] }): void => {
+    this.currentScores = payload.scores;
+    this.playerListPanel.update(this.lobbyState, this.myId, this.currentScores);
   };
 
   private handleMatchState = (payload: { state: MatchPhase }): void => {
@@ -334,6 +348,10 @@ export class GameScene extends Phaser.Scene {
       () => this.onLeave(),
       () => this.onStartMatch(),
     );
+
+    this.currentScores = [];
+    this.playerListPanel.destroy();
+    this.playerListPanel = new PlayerListPanel(this, this.lobbyState, this.myId);
 
     this.matchActive = false;
   };
