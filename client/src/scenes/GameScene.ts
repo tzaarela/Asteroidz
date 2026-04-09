@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import Stats from 'stats.js';
 import type { LobbyState, PlayerTransform, ScoreEntry, PickupType } from '@asteroidz/shared';
 import { MatchPhase, ARENA, NETWORK, RESPAWN } from '@asteroidz/shared';
 import { on, off, emit, getSocketId } from '../net/socket';
@@ -26,6 +27,7 @@ export class GameScene extends Phaser.Scene {
   private matchActive = false;
   private tickAccumulator = 0;
   private isDead = false;
+  private stats!: Stats;
 
   constructor() {
     super('GameScene');
@@ -69,6 +71,13 @@ export class GameScene extends Phaser.Scene {
     this.createStarField();
     this.buildPreMatchUi();
 
+    this.stats = new Stats();
+    this.stats.showPanel(0); // 0 = FPS, 1 = MS, 2 = MB
+    this.stats.dom.style.position = 'absolute';
+    this.stats.dom.style.top = '0px';
+    this.stats.dom.style.left = '0px';
+    document.body.appendChild(this.stats.dom);
+
     on('lobby:state',      this.handleLobbyState);
     on('match:state',      this.handleMatchState);
     on('match:reset',      this.handleMatchReset);
@@ -90,6 +99,7 @@ export class GameScene extends Phaser.Scene {
       this.playerListPanel?.destroy();
       this.runtime?.destroy();
       this.runtime = null;
+      this.stats.dom.remove();
     });
   }
 
@@ -186,6 +196,8 @@ export class GameScene extends Phaser.Scene {
   };
 
   update(_time: number, delta: number): void {
+    this.stats.begin();
+
     if (this.keys) {
       this.inputState.left   = this.keys.A.isDown     || this.touchInput.left;
       this.inputState.right  = this.keys.D.isDown     || this.touchInput.right;
@@ -202,6 +214,8 @@ export class GameScene extends Phaser.Scene {
         this.sendPlayerState();
       }
     }
+
+    this.stats.end();
   }
 
   private sendPlayerState(): void {

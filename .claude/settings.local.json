@@ -22,7 +22,8 @@
       "Bash(grep -E \"\\\\.\\(ts|json|html\\)$\")",
       "Bash(rm:*)",
       "Bash(pnpm build:*)",
-      "Bash(where gh:*)"
+      "Bash(where gh:*)",
+      "Bash(pnpm typecheck:*)"
     ]
   }
 }
