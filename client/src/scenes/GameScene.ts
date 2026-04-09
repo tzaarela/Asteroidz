@@ -183,7 +183,7 @@ export class GameScene extends Phaser.Scene {
       spawnY: spawn.y,
     });
 
-    this.cameras.main.startFollow(this.runtime.shipSprite, true, 0.1, 0.1);
+    this.cameras.main.startFollow(this.runtime.shipSprite, false, 1, 1);
     this.cameras.main.setDeadzone(60, 40);
   };
 
