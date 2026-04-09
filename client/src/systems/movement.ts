@@ -6,6 +6,8 @@ export interface InputState {
   right: boolean;
   thrust: boolean;
   shoot: boolean;
+  strafeLeft: boolean;
+  strafeRight: boolean;
 }
 
 export class MovementSystem {
@@ -42,10 +44,24 @@ export class MovementSystem {
       vy += Math.sin(thrustRad) * PHYSICS.thrustForce * dt;
     }
 
-    // Clamp to max velocity
+    // Strafe — perpendicular to facing direction
+    // angle-180° = left lateral; angle+0° = right lateral (both 90° off the thrust axis)
+    if (this.input.strafeLeft) {
+      const strafeRad = Phaser.Math.DegToRad(this.ship.angle - 180);
+      vx += Math.cos(strafeRad) * PHYSICS.strafeForce * dt;
+      vy += Math.sin(strafeRad) * PHYSICS.strafeForce * dt;
+    }
+    if (this.input.strafeRight) {
+      const strafeRad = Phaser.Math.DegToRad(this.ship.angle);
+      vx += Math.cos(strafeRad) * PHYSICS.strafeForce * dt;
+      vy += Math.sin(strafeRad) * PHYSICS.strafeForce * dt;
+    }
+
+    // Clamp to max velocity; strafing alone uses the lower strafe cap
+    const speedCap = this.input.thrust ? PHYSICS.maxVelocity : PHYSICS.maxStrafeVelocity;
     const speed = Math.hypot(vx, vy);
-    if (speed > PHYSICS.maxVelocity) {
-      const scale = PHYSICS.maxVelocity / speed;
+    if (speed > speedCap) {
+      const scale = speedCap / speed;
       vx *= scale;
       vy *= scale;
     }

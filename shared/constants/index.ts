@@ -3,8 +3,10 @@
 
 export const PHYSICS = {
   thrustForce: 10,        // pixels/s² acceleration when thrusting
+  strafeForce: 6,         // pixels/s² acceleration when strafing (Q/E)
   rotationSpeed: 180,      // degrees/s
   maxVelocity: 30,        // pixels/s
+  maxStrafeVelocity: 20,  // pixels/s cap when strafing without forward thrust
   drag: 0.98,              // velocity multiplier per frame (1 = no drag, 0 = instant stop)
 } as const;
 

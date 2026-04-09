@@ -37,8 +37,8 @@ export class GameScene extends Phaser.Scene {
     this.lobbyState = data.lobbyState;
     this.myId = getSocketId() ?? '';
     this.runtime = null;
-    this.inputState = { left: false, right: false, thrust: false, shoot: false };
-    this.touchInput = { left: false, right: false, thrust: false, shoot: false };
+    this.inputState = { left: false, right: false, thrust: false, shoot: false, strafeLeft: false, strafeRight: false };
+    this.touchInput = { left: false, right: false, thrust: false, shoot: false, strafeLeft: false, strafeRight: false };
     this.matchActive = false;
     this.tickAccumulator = 0;
     this.isDead = false;
@@ -48,11 +48,13 @@ export class GameScene extends Phaser.Scene {
     this.matter.world.setBounds(0, 0, ARENA.worldWidth, ARENA.worldHeight);
     this.cameras.main.setBounds(0, 0, ARENA.worldWidth, ARENA.worldHeight);
 
-    this.keys = this.input.keyboard!.addKeys('W,A,D,SPACE') as {
+    this.keys = this.input.keyboard!.addKeys('W,A,D,SPACE,Q,E') as {
       W: Phaser.Input.Keyboard.Key;
       A: Phaser.Input.Keyboard.Key;
       D: Phaser.Input.Keyboard.Key;
       SPACE: Phaser.Input.Keyboard.Key;
+      Q: Phaser.Input.Keyboard.Key;
+      E: Phaser.Input.Keyboard.Key;
     };
 
     this.isTouchDevice =
@@ -199,10 +201,12 @@ export class GameScene extends Phaser.Scene {
     this.stats.begin();
 
     if (this.keys) {
-      this.inputState.left   = this.keys.A.isDown     || this.touchInput.left;
-      this.inputState.right  = this.keys.D.isDown     || this.touchInput.right;
-      this.inputState.thrust = this.keys.W.isDown     || this.touchInput.thrust;
-      this.inputState.shoot  = this.keys.SPACE.isDown || this.touchInput.shoot;
+      this.inputState.left        = this.keys.A.isDown     || this.touchInput.left;
+      this.inputState.right       = this.keys.D.isDown     || this.touchInput.right;
+      this.inputState.thrust      = this.keys.W.isDown     || this.touchInput.thrust;
+      this.inputState.shoot       = this.keys.SPACE.isDown || this.touchInput.shoot;
+      this.inputState.strafeLeft  = this.keys.Q.isDown;
+      this.inputState.strafeRight = this.keys.E.isDown;
     }
 
     this.runtime?.update(delta, this.isDead);
