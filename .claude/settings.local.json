@@ -23,7 +23,9 @@
       "Bash(rm:*)",
       "Bash(pnpm build:*)",
       "Bash(where gh:*)",
-      "Bash(pnpm typecheck:*)"
+      "Bash(pnpm typecheck:*)",
+      "Bash(xargs grep:*)",
+      "Bash(echo \"Exit: $?\")"
     ]
   }
 }

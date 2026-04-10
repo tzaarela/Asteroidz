@@ -86,8 +86,9 @@ export class GameScene extends Phaser.Scene {
     on('match:winner',     this.handleMatchWinner);
     on('player:died',      this.handlePlayerDied);
     on('match:score',      this.handleMatchScore);
-    on('pickup:spawn',     this.handlePickupSpawn);
-    on('pickup:collected', this.handlePickupCollected);
+    on('pickup:spawn',       this.handlePickupSpawn);
+    on('pickup:collected',   this.handlePickupCollected);
+    on('asteroid:destroyed', this.handleAsteroidDestroyed);
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       off('lobby:state',      this.handleLobbyState);
@@ -96,8 +97,9 @@ export class GameScene extends Phaser.Scene {
       off('match:winner',     this.handleMatchWinner);
       off('player:died',      this.handlePlayerDied);
       off('match:score',      this.handleMatchScore);
-      off('pickup:spawn',     this.handlePickupSpawn);
-      off('pickup:collected', this.handlePickupCollected);
+      off('pickup:spawn',       this.handlePickupSpawn);
+      off('pickup:collected',   this.handlePickupCollected);
+      off('asteroid:destroyed', this.handleAsteroidDestroyed);
       this.playerListPanel?.destroy();
       this.runtime?.destroy();
       this.runtime = null;
@@ -195,6 +197,10 @@ export class GameScene extends Phaser.Scene {
 
   private handlePickupCollected = (payload: { pickupId: string; collectorId: string; type: PickupType }): void => {
     this.runtime?.pickups.removePickup(payload.pickupId);
+  };
+
+  private handleAsteroidDestroyed = (payload: { asteroidId: string; destroyerId: string }): void => {
+    this.runtime?.asteroids.destroyAsteroid(payload.asteroidId, payload.destroyerId);
   };
 
   update(_time: number, delta: number): void {

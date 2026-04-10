@@ -68,6 +68,9 @@ export interface ClientToServerEvents {
 
   /** A wall chunk was destroyed by a bullet. Relayed to all others. */
   'arena:destroy': (payload: { chunkId: string }) => void;
+
+  /** A minable asteroid was destroyed by a local bullet. Relayed to all others. */
+  'asteroid:destroyed': (payload: { asteroidId: string }) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -130,6 +133,9 @@ export interface ServerToClientEvents {
 
   /** Server relays wall destruction to all players in the lobby. */
   'arena:destroy': (payload: { chunkId: string; destroyerId: string }) => void;
+
+  /** Server relays asteroid destruction to all players in the lobby. */
+  'asteroid:destroyed': (payload: { asteroidId: string; destroyerId: string }) => void;
 
   // --- Match ---
 

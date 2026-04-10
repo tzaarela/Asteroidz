@@ -8,7 +8,7 @@ import { RemotePlayerSystem } from './remotePlayerSystem';
 import { BulletSystem } from './bulletSystem';
 import { RemoteBulletSystem } from './remoteBulletSystem';
 import { PickupSystem } from './pickups';
-import { ArenaSystem } from './arena';
+import { AsteroidSystem } from './arena';
 import { MatterCollisionRouter } from './matterCollisionRouter';
 import { TouchControls } from '../ui/touchControls';
 import { ensureShipTexture } from '../utils/shipTexture';
@@ -38,7 +38,7 @@ export class MatchRuntime {
   readonly bullets: BulletSystem;
   readonly remoteBullets: RemoteBulletSystem;
   readonly pickups: PickupSystem;
-  readonly arena: ArenaSystem;
+  readonly asteroids: AsteroidSystem;
   readonly touch: TouchControls | null;
 
   private readonly scene: Phaser.Scene;
@@ -76,8 +76,8 @@ export class MatchRuntime {
     this.playerColor = Phaser.Display.Color.HexStringToColor(me.color).color;
     this.ammoDisplay = scene.add.graphics();
 
-    // Arena walls — polygon Matter bodies. Previously dead code; now wired.
-    this.arena = new ArenaSystem(scene);
+    // Asteroid field — boundary ring + scattered asteroid field.
+    this.asteroids = new AsteroidSystem(scene);
 
     // Gameplay systems
     this.movement = new MovementSystem(scene, shipSprite, inputState);
@@ -114,13 +114,25 @@ export class MatchRuntime {
       emit('pickup:collected', { pickupId, type });
     });
 
-    // Bullet hitting a wall chunk → despawn the bullet. Wall destruction
-    // itself is a future feature; for parity with the old (unwired) Arcade
-    // build we just absorb the bullet without destroying the wall.
+    // Bullet hitting a boundary wall chunk → despawn the bullet. The ring is
+    // non-destroyable; we just absorb the bullet.
     this.collisions.on('bullet-local', 'wall-', (bulletBody) => {
       const bulletSprite = (bulletBody as unknown as { gameObject?: Phaser.Physics.Matter.Sprite }).gameObject;
       if (bulletSprite && this.bullets.owns(bulletSprite)) {
         this.bullets.destroyBullet(bulletSprite);
+      }
+    });
+
+    // Bullet hitting an asteroid → destroy asteroid, emit event, despawn bullet.
+    this.collisions.on('bullet-local', 'asteroid-', (bulletBody, asteroidBody) => {
+      const bulletSprite = (bulletBody as unknown as { gameObject?: Phaser.Physics.Matter.Sprite }).gameObject;
+      if (bulletSprite && this.bullets.owns(bulletSprite)) {
+        this.bullets.destroyBullet(bulletSprite);
+      }
+      const asteroidId = this.asteroids.getAsteroidIdForBody(asteroidBody.id);
+      if (asteroidId) {
+        this.asteroids.destroyAsteroid(asteroidId, myId);
+        emit('asteroid:destroyed', { asteroidId });
       }
     });
   }
@@ -162,7 +174,7 @@ export class MatchRuntime {
   destroy(): void {
     this.collisions.destroy();
     this.pickups.destroy();
-    this.arena.destroy();
+    this.asteroids.destroy();
     this.player.destroy();
     this.ammoDisplay.destroy();
     this.bullets.destroy();

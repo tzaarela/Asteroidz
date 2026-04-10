@@ -52,6 +52,22 @@ export const ARENA = {
   chunkVertexJitter: 18,   // ±px random displacement per polygon vertex
 } as const;
 
+export const ASTEROID = {
+  fieldSeed: 137,           // LCG seed — different from ARENA seed (77) and STAR_SEED (42)
+  countNormal: 50,          // number of normal (gray) asteroids
+  countCrystal: 8,          // number of silver/blue crystal asteroids
+  countGold: 4,             // number of gold nugget asteroids
+  minSpacing: 80,           // minimum px between asteroid centers
+  placementAttempts: 30,    // max retries per asteroid before giving up
+  minRadius: 22,            // minimum polygon circumradius in px
+  maxRadius: 55,            // maximum polygon circumradius in px
+  vertexCountMin: 5,        // minimum polygon sides
+  vertexCountMax: 8,        // maximum polygon sides
+  vertexJitter: 0.35,       // fraction of radius for shrink-only per-vertex noise
+  crystalOreValue: 5,       // ore points for destroying a crystal asteroid
+  goldOreValue: 10,         // ore points for destroying a gold asteroid
+} as const;
+
 export const NETWORK = {
   tickRateMs: 50,          // ms between position update broadcasts (~20/s)
   interpolationBufferMs: 100, // ms of interpolation lag for smooth remote movement

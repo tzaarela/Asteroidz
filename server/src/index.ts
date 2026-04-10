@@ -55,6 +55,12 @@ io.on('connection', (socket) => {
     socket.to(lobbyCode).emit('arena:destroy', { chunkId, destroyerId: socket.id });
   });
 
+  socket.on('asteroid:destroyed', ({ asteroidId }) => {
+    const lobbyCode = getPlayerLobbyCode(socket.id);
+    if (!lobbyCode) return;
+    socket.to(lobbyCode).emit('asteroid:destroyed', { asteroidId, destroyerId: socket.id });
+  });
+
   socket.on('player:hit', ({ targetId }) => handleKill(socket, io, targetId));
 
   socket.on('player:respawn', ({ x, y }) => {

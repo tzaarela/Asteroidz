@@ -50,6 +50,12 @@ export enum PickupType {
   Shield = 'shield',
 }
 
+export enum AsteroidType {
+  Normal  = 'normal',
+  Crystal = 'crystal',
+  Gold    = 'gold',
+}
+
 // ---------------------------------------------------------------------------
 // Game state interfaces
 // ---------------------------------------------------------------------------
@@ -85,6 +91,13 @@ export interface Pickup {
 export interface ArenaChunk {
   id: string;
   vertices: Vector2[]; // polygon points
+  destroyed: boolean;
+}
+
+export interface Asteroid {
+  id: string;
+  type: AsteroidType;
+  vertices: Vector2[];
   destroyed: boolean;
 }
 
